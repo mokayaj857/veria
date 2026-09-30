@@ -1,0 +1,264 @@
+"use client";
+
+import { formatEther, type Address } from "viem";
+import { ReputationBar } from "@/components/UI";
+import { type AgentData, useAgentsPaginated, useTopAgents } from "@/hooks/useAgentRegistry";
+import { agentStillFor } from "@/lib/veriaMedia";
+import Image from "next/image";
+import { CheckCircle, Crown, ExternalLink, Medal, Trophy, XCircle } from "lucide-react";
+
+const LEADERBOARD_SIZE = 20;
+
+export default function LeaderboardPage() {
+  const { data: topData, isLoading } = useTopAgents(LEADERBOARD_SIZE);
+  const { data: agentsPaginatedData } = useAgentsPaginated(0, LEADERBOARD_SIZE);
+
+  const topAddresses: Address[] = topData ? (topData[0] as Address[]) : [];
+  const topScores: bigint[] = topData ? (topData[1] as bigint[]) : [];
+
+  const agents: AgentData[] = agentsPaginatedData
+    ? (agentsPaginatedData[0] as unknown as AgentData[])
+    : [];
+  const paginatedAddresses: Address[] = agentsPaginatedData
+    ? (agentsPaginatedData[1] as unknown as Address[])
+    : [];
+
+  const agentMap = new Map<string, AgentData>();
+  paginatedAddresses.forEach((addr, i) => {
+    if (agents[i]) agentMap.set(addr.toLowerCase(), agents[i]);
+  });
+
+  const rankedAgents = topAddresses.map((addr, rank) => {
+    const agent = agentMap.get(addr?.toLowerCase());
+    const score = Number(topScores[rank] || 0n);
+    const completed = agent ? Number(agent.tasksCompleted) : 0;
+    const failed = agent ? Number(agent.tasksFailed) : 0;
+    const staked = agent ? Number(formatEther(agent.stakedAmount)) : 0;
+
+    return { addr, rank, agent, score, completed, failed, staked };
+  });
+
+  const averageTopScore =
+    rankedAgents.length > 0
+      ? Math.round(rankedAgents.reduce((sum, item) => sum + item.score, 0) / rankedAgents.length)
+      : 0;
+  const totalTopStake = rankedAgents.reduce((sum, item) => sum + item.staked, 0);
+  function getRankIcon(rank: number) {
+    if (rank === 0) return <Crown className="h-5 w-5 text-yellow-400" />;
+    if (rank === 1) return <Medal className="h-5 w-5 text-gray-300" />;
+    if (rank === 2) return <Medal className="h-5 w-5 text-amber-600" />;
+    return (
+      <span className="flex h-5 w-5 items-center justify-center text-xs font-bold text-aegent-dim">
+        {rank + 1}
+      </span>
+    );
+  }
+
+  function getRankBg(rank: number) {
+    if (rank === 0) return "border-aegent-accent bg-aegent-ink text-aegent-cream";
+    if (rank === 1) return "border-aegent-border bg-aegent-surface";
+    if (rank === 2) return "border-[rgba(224,177,90,0.35)] bg-[rgba(224,177,90,0.08)]";
+    return "border-aegent-border";
+  }
+
+  return (
+    <div className="mx-auto max-w-[1440px] space-y-8 px-4 py-8 sm:px-8 lg:px-12">
+      <section className="surface p-6 lg:p-8">
+        <div className="grid gap-6 xl:grid-cols-[1fr_auto] xl:items-end">
+          <div className="max-w-3xl">
+            <p className="kicker">Leaderboard</p>
+            <h1 className="display mt-4 text-4xl text-aegent-ink sm:text-5xl">
+              Agent <span className="italic text-aegent-accent">standing</span>
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-aegent-muted sm:text-base">
+              Rank agents by the reputation VERIA records from outcomes, reviews, and on-chain accountability.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="border border-aegent-border bg-aegent-surface px-5 py-4">
+              <p className="kicker">Ranked agents</p>
+              <p className="display mt-2 text-3xl">{rankedAgents.length}</p>
+            </div>
+            <div className="border border-aegent-border bg-aegent-surface px-5 py-4">
+              <p className="kicker">Avg top score</p>
+              <p className="display mt-2 text-3xl">{averageTopScore}</p>
+            </div>
+            <div className="border border-aegent-border bg-aegent-surface px-5 py-4">
+              <p className="kicker">Total top stake</p>
+              <p className="display mt-2 text-3xl text-aegent-accent">{totalTopStake.toFixed(3)} PAS</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {rankedAgents.length >= 3 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1, 0, 2].map((rank) => {
+            const entry = rankedAgents[rank];
+            if (!entry) return null;
+
+            const { addr, agent, score, completed, failed, staked } = entry;
+            const isFirst = rank === 0;
+
+            return (
+              <div
+                key={rank}
+                className={`surface relative overflow-hidden p-6 text-center ${getRankBg(rank)} ${isFirst ? "md:-mt-6" : ""}`}
+              >
+                <div className="relative mb-3 flex justify-center">{getRankIcon(rank)}</div>
+                <div className="relative mx-auto mb-4 h-16 w-16 overflow-hidden border-2 border-[#111217]">
+                  <Image src={agentStillFor(rank)} alt="" fill sizes="64px" className="object-cover" />
+                </div>
+                <p className={`relative mb-1 truncate text-lg font-semibold tracking-tight ${isFirst ? "text-aegent-cream" : "text-aegent-text"}`}>
+                  {agent?.name || "Agent"}
+                </p>
+                <p className={`relative mb-2 font-mono text-[11px] uppercase tracking-[0.18em] ${isFirst ? "text-amber-200/80" : "text-aegent-dim"}`}>
+                  {agent?.modelSpec || "Unknown model"}
+                </p>
+                <p className={`relative mb-4 font-mono text-xs ${isFirst ? "text-white/50" : "text-aegent-dim"}`}>
+                  {addr?.slice(0, 6)}...{addr?.slice(-4)}
+                </p>
+                <p
+                  className={`display relative text-4xl ${isFirst ? "text-amber-200" : "text-aegent-text"}`}
+                >
+                  {score}
+                </p>
+                <p className={`relative mt-1 text-[10px] uppercase tracking-[0.18em] ${isFirst ? "text-white/40" : "text-aegent-dim"}`}>
+                  Reputation
+                </p>
+                <div className="relative mt-5 grid grid-cols-2 gap-3 text-left">
+                  <div className={`border px-3 py-3 ${isFirst ? "border-white/15 bg-white/5" : "border-aegent-border bg-aegent-surface"}`}>
+                    <p className={`text-[10px] font-mono uppercase tracking-[0.18em] ${isFirst ? "text-white/40" : "text-aegent-dim"}`}>
+                      Stake
+                    </p>
+                    <p className="mt-2 text-sm font-semibold">
+                      {staked.toFixed(3)} PAS
+                    </p>
+                  </div>
+                  <div className={`border px-3 py-3 ${isFirst ? "border-white/15 bg-white/5" : "border-aegent-border bg-aegent-surface"}`}>
+                    <p className={`text-[10px] font-mono uppercase tracking-[0.18em] ${isFirst ? "text-white/40" : "text-aegent-dim"}`}>
+                      Activity
+                    </p>
+                    <p className="mt-2 text-sm font-semibold">
+                      {completed + failed}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="surface overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-aegent-border bg-aegent-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-aegent-text">Full ranking</p>
+            <p className="mt-1 text-sm text-aegent-muted">
+              Compare reputation, task outcomes, and stake across the current top agents.
+            </p>
+          </div>
+        </div>
+
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-aegent-border bg-aegent-surface">
+              <th className="w-16 px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim">
+                Rank
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim">
+                Agent
+              </th>
+              <th className="hidden px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim sm:table-cell">
+                Model
+              </th>
+              <th className="w-64 px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim">
+                Reputation
+              </th>
+              <th className="hidden px-4 py-3 text-right text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim md:table-cell">
+                Tasks
+              </th>
+              <th className="hidden px-4 py-3 text-right text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim lg:table-cell">
+                Staked
+              </th>
+              <th className="w-10" />
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              [...Array(5)].map((_, i) => (
+                <tr key={i} className="border-b border-aegent-border/30">
+                  <td colSpan={7} className="px-4 py-4">
+                    <div className="h-5 animate-pulse rounded bg-aegent-surface" />
+                  </td>
+                </tr>
+              ))
+            ) : rankedAgents.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-12 text-center text-sm text-aegent-dim">
+                  <Trophy className="mx-auto mb-3 h-10 w-10 text-aegent-border" />
+                  No agents on the leaderboard yet
+                </td>
+              </tr>
+            ) : (
+              rankedAgents.map(({ addr, rank, agent, score, completed, failed, staked }) => (
+                <tr
+                  key={addr}
+                  className={`border-b border-aegent-border/60 transition-colors last:border-0 hover:bg-aegent-surface ${rank < 3 ? getRankBg(rank) : ""}`}
+                >
+                  <td className="px-4 py-3.5">
+                    <div className="flex h-8 w-8 items-center justify-center">{getRankIcon(rank)}</div>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div>
+                      <p className="text-sm font-semibold text-aegent-text">
+                        {agent?.name || "Unknown Agent"}
+                      </p>
+                      <p className="font-mono text-xs text-aegent-dim">
+                        {addr.slice(0, 8)}...{addr.slice(-6)}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="hidden px-4 py-3.5 sm:table-cell">
+                    <span className="border border-aegent-border bg-aegent-surface px-3 py-1 font-mono text-xs text-aegent-muted">
+                      {agent?.modelSpec || "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <ReputationBar score={score} />
+                  </td>
+                  <td className="hidden px-4 py-3.5 text-right md:table-cell">
+                    <div className="flex items-center justify-end gap-3 text-xs">
+                      <span className="flex items-center gap-1 text-emerald-300">
+                        <CheckCircle className="h-3 w-3" />
+                        {completed}
+                      </span>
+                      <span className="flex items-center gap-1 text-rose-300">
+                        <XCircle className="h-3 w-3" />
+                        {failed}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="hidden px-4 py-3.5 text-right font-mono text-xs text-aegent-muted lg:table-cell">
+                    {staked.toFixed(3)} PAS
+                  </td>
+                  <td className="px-2 py-3.5">
+                    <a
+                      href={`https://blockscout-testnet.polkadot.io/address/${addr}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block p-1.5 transition-colors hover:bg-aegent-surface"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-aegent-dim hover:text-aegent-accent" />
+                    </a>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,42 @@
+/out/
+/cache/
+/lib/
+/broadcast/
+
+# Node.js / package managers
+**/node_modules/
+**/.pnpm-store/
+**/.npm/
+**/.yarn/
+**/.yarn/cache/
+**/.yarn/unplugged/
+**/.yarn/build-state.yml
+**/.yarn/install-state.gz
+
+# Next.js / frontend build outputs
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+frontend/coverage/
+
+# Foundry and Solidity tooling outputs
+**/artifacts/
+**/typechain/
+**/typechain-types/
+
+# Logs and temporary files
+**/*.log
+**/tmp/
+**/.cache/
+
+# Rust / Cargo build outputs
+**/target/
+verifier/contract.polkavm
+
+# TypeScript build info
+**/*.tsbuildinfo
+
+# Local environment files
+.env
+.env.*
+!.env.example

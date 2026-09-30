@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="VERIA">
+  <rect width="120" height="120" fill="#1f3dff"/>
+  <path fill="#f2efe8" d="M18 22h28l14 58 14-58h28L68 98H52z"/>
+  <path fill="#e23c2f" d="M78 22h24L62 102H38z"/>
+  <rect x="0" y="0" width="120" height="120" fill="none" stroke="#111217" stroke-width="8"/>
+</svg>

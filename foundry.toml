@@ -1,0 +1,19 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.28"
+optimizer = true
+optimizer_runs = 200
+
+# OpenZeppelin remapping
+remappings = [
+    "@openzeppelin/=lib/openzeppelin-contracts/"
+]
+
+# Polkadot Hub TestNet
+[rpc_endpoints]
+polkadot-testnet = "https://services.polkadothub-rpc.com/testnet"
+
+[etherscan]
+polkadot-testnet = { key = "", url = "https://blockscout-testnet.polkadot.io/api", chain = 420420417 }
