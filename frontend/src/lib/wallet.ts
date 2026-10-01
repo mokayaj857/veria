@@ -126,5 +126,8 @@ export function walletErrorMessage(err: unknown) {
   };
   if (anyErr.code === 4001) return "You rejected the request in the wallet.";
   const raw = anyErr.shortMessage || anyErr.cause?.message || anyErr.message || "Wallet request failed.";
+  if (/already registered/i.test(raw)) {
+    return "This wallet already has an agent on AgentRegistry. One wallet can register only once. Switch to a different wallet to register another agent.";
+  }
   return raw.replace(/^ConnectorNotFoundError:\s*/i, "");
 }

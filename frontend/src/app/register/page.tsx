@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { useVeriaWallet } from "@/lib/walletSession";
 import { ConnectWalletButton } from "@/components/ConnectWallet";
 import { formatEther, parseEther, keccak256, toBytes } from "viem";
-import { useCreateRegistrationSignature, useMinStake, useRegisterAgent } from "@/hooks/useAgentRegistry";
+import { type AgentData, useCreateRegistrationSignature, useMinStake, useRegisterAgent, useAgent } from "@/hooks/useAgentRegistry";
 import { AGENT_REGISTRY_ADDRESS } from "@/lib/contract";
+import { walletErrorMessage } from "@/lib/wallet";
 import {
   AlertCircle,
   CheckCircle,
@@ -55,6 +57,9 @@ const REGISTRATION_STEPS = [
 
 export default function RegisterPage() {
   const { isConnected, address } = useVeriaWallet();
+  const { data: existingAgent } = useAgent(address);
+  const existing = existingAgent as AgentData | undefined;
+  const alreadyRegistered = !!existing && existing.registeredAt > 0n;
   const { register, hash, isPending, isConfirming, isSuccess, error, reset, retryStatus } =
     useRegisterAgent();
   const { createSignature } = useCreateRegistrationSignature();
@@ -100,6 +105,10 @@ export default function RegisterPage() {
     reset();
 
     if (!address || !form.name || !modelSpec) return;
+    if (alreadyRegistered) {
+      setSignError("This wallet already registered an agent. AgentRegistry allows one agent per wallet. Switch accounts in MetaMask to register another.");
+      return;
+    }
     if (!minStakeWei || parseEther(form.stakeAmount) < minStakeWei) {
       setSignError(`Stake must be at least ${minStakePas} PAS ($${minStakeUsd} USD) from AgentRegistry.`);
       return;
@@ -121,8 +130,8 @@ export default function RegisterPage() {
       });
 
       await register(form.name, modelSpec, metadata, publicKey, signature, form.stakeAmount);
-    } catch (err: any) {
-      setSignError(err?.shortMessage || err?.message || "Transaction failed");
+    } catch (err: unknown) {
+      setSignError(walletErrorMessage(err));
       setStep("form");
     }
   }
@@ -149,18 +158,18 @@ export default function RegisterPage() {
     );
   }
 
-  if (hash) {
+  if (hash && (isConfirming || isSuccess)) {
     return (
       <div className="mx-auto max-w-xl">
         <div className="surface p-8 text-center">
           <CheckCircle className="mx-auto mb-4 h-16 w-16 text-aegent-accent" />
           <h2 className="display mb-2 text-2xl text-aegent-ink">
-            Agent registered successfully
+            {isSuccess ? "Agent registered on-chain" : "Waiting for confirmation"}
           </h2>
           <p className="mb-4 text-aegent-muted">
-            Your agent identity has been submitted to Polkadot Hub.
-            {isConfirming && " Confirming on-chain..."}
-            {isSuccess && " Confirmed."}
+            {isSuccess
+              ? "Your agent identity is live on Polkadot Hub."
+              : "The wallet sent the transaction. Waiting for AgentRegistry to confirm it."}
           </p>
           <a
             href={`https://blockscout-testnet.polkadot.io/tx/${hash}`}
@@ -171,6 +180,49 @@ export default function RegisterPage() {
             View on Blockscout <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
+      </div>
+    );
+  }
+
+  if (alreadyRegistered && existing) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-10">
+        <section className="surface p-8">
+          <h1 className="display text-3xl text-[#111217]">This wallet is already registered</h1>
+          <p className="mt-4 text-base leading-8 text-[#111217]">
+            AgentRegistry stores one agent per wallet address. <span className="font-bold">{existing.name}</span> is
+            already bound to {address?.slice(0, 8)}...{address?.slice(-6)}. A second registerAgent call from the
+            same account reverts with <span className="font-mono">already registered</span>.
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="border-2 border-[#111217] bg-[#f7f4ee] p-4">
+              <p className="text-sm font-bold text-[#111217]">My Stake</p>
+              <p className="mt-2 text-xl font-black text-[#1f3dff]">
+                {Number(formatEther(existing.stakedAmount)).toFixed(2)} PAS
+              </p>
+            </div>
+            <div className="border-2 border-[#111217] bg-[#f7f4ee] p-4">
+              <p className="text-sm font-bold text-[#111217]">Tasks Completed</p>
+              <p className="mt-2 text-xl font-black text-[#111217]">{Number(existing.tasksCompleted)}</p>
+            </div>
+            <div className="border-2 border-[#111217] bg-[#f7f4ee] p-4">
+              <p className="text-sm font-bold text-[#111217]">Tasks Failed</p>
+              <p className="mt-2 text-xl font-black text-[#e23c2f]">{Number(existing.tasksFailed)}</p>
+            </div>
+          </div>
+          <p className="mt-6 text-sm leading-7 text-[#111217]">
+            To register another agent, switch to a different MetaMask account, then connect that wallet and
+            submit again.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link href="/dashboard" className="btn-ink">
+              Open dashboard
+            </Link>
+            <Link href="/explorer" className="btn-paper">
+              View registry
+            </Link>
+          </div>
+        </section>
       </div>
     );
   }

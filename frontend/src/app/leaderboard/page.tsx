@@ -1,11 +1,11 @@
 "use client";
 
 import { formatEther, type Address } from "viem";
-import { ReputationBar } from "@/components/UI";
+import { ReputationBar, AgentVitalStats } from "@/components/UI";
 import { type AgentData, useAgentsPaginated, useTopAgents } from "@/hooks/useAgentRegistry";
 import { agentStillFor } from "@/lib/veriaMedia";
 import Image from "next/image";
-import { CheckCircle, Crown, ExternalLink, Medal, Trophy, XCircle } from "lucide-react";
+import { Crown, ExternalLink, Medal, Trophy } from "lucide-react";
 
 const LEADERBOARD_SIZE = 20;
 
@@ -127,23 +127,12 @@ export default function LeaderboardPage() {
                 <p className={`relative mt-1 text-[10px] uppercase tracking-[0.18em] ${isFirst ? "text-white/40" : "text-aegent-dim"}`}>
                   Reputation
                 </p>
-                <div className="relative mt-5 grid grid-cols-2 gap-3 text-left">
-                  <div className={`border px-3 py-3 ${isFirst ? "border-white/15 bg-white/5" : "border-aegent-border bg-aegent-surface"}`}>
-                    <p className={`text-[10px] font-mono uppercase tracking-[0.18em] ${isFirst ? "text-white/40" : "text-aegent-dim"}`}>
-                      Stake
-                    </p>
-                    <p className="mt-2 text-sm font-semibold">
-                      {staked.toFixed(3)} PAS
-                    </p>
-                  </div>
-                  <div className={`border px-3 py-3 ${isFirst ? "border-white/15 bg-white/5" : "border-aegent-border bg-aegent-surface"}`}>
-                    <p className={`text-[10px] font-mono uppercase tracking-[0.18em] ${isFirst ? "text-white/40" : "text-aegent-dim"}`}>
-                      Activity
-                    </p>
-                    <p className="mt-2 text-sm font-semibold">
-                      {completed + failed}
-                    </p>
-                  </div>
+                <div className="relative mt-5">
+                  <AgentVitalStats
+                    stakePas={staked.toFixed(2)}
+                    completed={completed}
+                    failed={failed}
+                  />
                 </div>
               </div>
             );
@@ -176,11 +165,14 @@ export default function LeaderboardPage() {
               <th className="w-64 px-4 py-3 text-left text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim">
                 Reputation
               </th>
-              <th className="hidden px-4 py-3 text-right text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim md:table-cell">
-                Tasks
+              <th className="hidden px-4 py-3 text-right text-sm font-black text-[#111217] md:table-cell">
+                Tasks Completed
               </th>
-              <th className="hidden px-4 py-3 text-right text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim lg:table-cell">
-                Staked
+              <th className="hidden px-4 py-3 text-right text-sm font-black text-[#111217] md:table-cell">
+                Tasks Failed
+              </th>
+              <th className="hidden px-4 py-3 text-right text-sm font-black text-[#111217] lg:table-cell">
+                My Stake
               </th>
               <th className="w-10" />
             </tr>
@@ -189,14 +181,14 @@ export default function LeaderboardPage() {
             {isLoading ? (
               [...Array(5)].map((_, i) => (
                 <tr key={i} className="border-b border-aegent-border/30">
-                  <td colSpan={7} className="px-4 py-4">
+                  <td colSpan={8} className="px-4 py-4">
                     <div className="h-5 animate-pulse rounded bg-aegent-surface" />
                   </td>
                 </tr>
               ))
             ) : rankedAgents.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-sm text-aegent-dim">
+                <td colSpan={8} className="px-4 py-12 text-center text-sm text-aegent-dim">
                   <Trophy className="mx-auto mb-3 h-10 w-10 text-aegent-border" />
                   No agents on the leaderboard yet
                 </td>
@@ -228,20 +220,14 @@ export default function LeaderboardPage() {
                   <td className="px-4 py-3.5">
                     <ReputationBar score={score} />
                   </td>
-                  <td className="hidden px-4 py-3.5 text-right md:table-cell">
-                    <div className="flex items-center justify-end gap-3 text-xs">
-                      <span className="flex items-center gap-1 text-emerald-300">
-                        <CheckCircle className="h-3 w-3" />
-                        {completed}
-                      </span>
-                      <span className="flex items-center gap-1 text-rose-300">
-                        <XCircle className="h-3 w-3" />
-                        {failed}
-                      </span>
-                    </div>
+                  <td className="hidden px-4 py-3.5 text-right text-base font-black text-[#111217] md:table-cell">
+                    {completed}
                   </td>
-                  <td className="hidden px-4 py-3.5 text-right font-mono text-xs text-aegent-muted lg:table-cell">
-                    {staked.toFixed(3)} PAS
+                  <td className="hidden px-4 py-3.5 text-right text-base font-black text-[#e23c2f] md:table-cell">
+                    {failed}
+                  </td>
+                  <td className="hidden px-4 py-3.5 text-right text-base font-black text-[#1f3dff] lg:table-cell">
+                    {staked.toFixed(2)} PAS
                   </td>
                   <td className="px-2 py-3.5">
                     <a

@@ -4,8 +4,8 @@ const nextConfig = {
   generateBuildId: async () => null,
   experimental: {
     staleTimes: {
-      dynamic: 30,
-      static: 180,
+      dynamic: 300,
+      static: 300,
     },
   },
   webpack: (config) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useReadContract, useWaitForTransactionReceipt } from "wagmi";
+import { useReadContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { AGENT_REGISTRY_ADDRESS, AGENT_REGISTRY_ABI } from "@/lib/contract";
 import { polkadotHubTestnet } from "@/lib/config";
 import { ensurePolkadotHubNetwork } from "@/lib/wallet";
@@ -72,11 +72,17 @@ export function useAgentCount() {
 }
 
 export function useAgent(address: Address | undefined) {
+  const listed = useAgentAddresses();
+  const known =
+    !!address &&
+    Array.isArray(listed.data) &&
+    listed.data.some((item) => item.toLowerCase() === address.toLowerCase());
+
   return useReadContract({
     ...registry,
     functionName: "getAgent",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: address && known ? [address] : undefined,
+    query: { enabled: Boolean(address && known), retry: false },
   });
 }
 
@@ -114,6 +120,7 @@ export function useAgentAddresses() {
 
 function useRegistryWrite() {
   const { address } = useVeriaWallet();
+  const publicClient = usePublicClient({ chainId: polkadotHubTestnet.id });
   const [hash, setHash] = useState<Hex | undefined>();
   const [isPending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -146,6 +153,17 @@ function useRegistryWrite() {
         chain: polkadotHubTestnet,
       });
       setHash(txHash);
+
+      if (publicClient) {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash: txHash,
+          pollingInterval: 4_000,
+        });
+        if (receipt.status === "reverted") {
+          throw new Error("The registry transaction reverted on-chain.");
+        }
+      }
+
       return txHash;
     } catch (err) {
       setError(err as Error);
@@ -160,7 +178,16 @@ function useRegistryWrite() {
     setError(null);
   }
 
-  return { address, send, hash, isPending, isConfirming, isSuccess, error, reset };
+  return {
+    address,
+    send,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error,
+    reset,
+  };
 }
 
 export function useRegisterAgent() {

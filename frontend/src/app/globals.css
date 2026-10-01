@@ -45,6 +45,10 @@ a {
   position: relative;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .kicker {
   font-family: var(--font-ibm), ui-monospace, monospace;
   font-size: 11px;

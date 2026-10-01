@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useVeriaWallet } from "@/lib/walletSession";
 import { ConnectWalletButton } from "@/components/ConnectWallet";
 import { formatEther, type Address } from "viem";
-import { ReputationBar, StatusBadge, StatCard } from "@/components/UI";
+import { ReputationBar, StatusBadge, AgentVitalStats } from "@/components/UI";
 import {
   type AgentData,
   useAgent,
@@ -14,9 +14,6 @@ import {
 } from "@/hooks/useAgentRegistry";
 import {
   ArrowRight,
-  Clock3,
-  Coins,
-  Fingerprint,
   Search,
   Shield,
   Trophy,
@@ -145,27 +142,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <StatCard
-              label="My Reputation"
-              value={`${Number(agent?.reputationScore ?? 0n)}/1000`}
-              icon={Trophy}
-              accent
-            />
-            <StatCard
-              label="My Stake"
-              value={`${Number(formatEther(agent?.stakedAmount ?? 0n)).toFixed(2)} PAS`}
-              icon={Coins}
-            />
-            <StatCard
-              label="Tasks Completed"
-              value={Number(agent?.tasksCompleted ?? 0n)}
-              icon={Shield}
-            />
-            <StatCard
-              label="Tasks Failed"
-              value={Number(agent?.tasksFailed ?? 0n)}
-              icon={Clock3}
+          <div className="space-y-3 bg-[#f2efe8] p-4">
+            <div className="border-2 border-[#111217] bg-white p-4">
+              <p className="text-sm font-black text-[#111217]">My Reputation</p>
+              <p className="mt-2 text-3xl font-black text-[#111217]">
+                {Number(agent?.reputationScore ?? 0n)}/1000
+              </p>
+            </div>
+            <AgentVitalStats
+              stakePas={Number(formatEther(agent?.stakedAmount ?? 0n)).toFixed(2)}
+              completed={Number(agent?.tasksCompleted ?? 0n)}
+              failed={Number(agent?.tasksFailed ?? 0n)}
             />
           </div>
         </div>

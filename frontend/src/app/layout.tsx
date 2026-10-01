@@ -4,6 +4,8 @@ import { IBM_Plex_Mono, Manrope, Syne } from "next/font/google";
 import { Toaster } from "sonner";
 import { Providers } from "@/lib/providers";
 import { Navigation } from "@/components/Navigation";
+import { SiteShell } from "@/components/SiteShell";
+import { AppPathProvider } from "@/lib/appPath";
 import "./globals.css";
 
 const syne = Syne({
@@ -36,7 +38,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children: _children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -44,11 +46,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${syne.variable} ${manrope.variable} ${ibm.variable} font-sans antialiased min-h-screen bg-aegent-bg text-aegent-text`}>
         <Providers>
-          <div className="page-frame min-h-screen">
-            <Navigation />
-            <main className="w-full">{children}</main>
-            <Toaster theme="light" position="bottom-right" richColors />
-          </div>
+          <AppPathProvider>
+            <div className="page-frame min-h-screen">
+              <Navigation />
+              <main className="w-full">
+                <SiteShell />
+              </main>
+              <Toaster theme="light" position="bottom-right" richColors />
+            </div>
+          </AppPathProvider>
         </Providers>
       </body>
     </html>

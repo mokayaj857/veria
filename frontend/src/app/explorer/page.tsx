@@ -18,7 +18,7 @@ import {
   useWithdrawalRequest,
   useMinStake,
 } from "@/hooks/useAgentRegistry";
-import { ReputationBar, StatusBadge } from "@/components/UI";
+import { ReputationBar, StatusBadge, AgentVitalStats } from "@/components/UI";
 import { agentStillFor } from "@/lib/veriaMedia";
 import Image from "next/image";
 import {
@@ -27,7 +27,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Coins,
   ExternalLink,
   Filter,
   Loader2,
@@ -502,39 +501,27 @@ export default function ExplorerPage() {
                       Reputation
                     </p>
                     <ReputationBar score={Number(agent.reputationScore)} />
-
-                    {(agent.tasksCompleted > 0n || agent.tasksFailed > 0n) && (
-                      <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                        <span className="border border-emerald-400/20 bg-emerald-500/10 px-3 py-1.5 text-emerald-300">
-                          {Number(agent.tasksCompleted)} succeeded
-                        </span>
-                        {agent.tasksFailed > 0n && (
-                          <span className="border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-rose-300">
-                            {Number(agent.tasksFailed)} failed
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
 
+                  <AgentVitalStats
+                    stakePas={Number(formatEther(agent.stakedAmount)).toFixed(2)}
+                    completed={Number(agent.tasksCompleted)}
+                    failed={Number(agent.tasksFailed)}
+                  />
+
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="border border-aegent-border bg-aegent-surface p-4">
-                      <p className="text-[11px] font-mono uppercase tracking-[0.2em] text-aegent-dim">
-                        Stake
-                      </p>
-                      <p className="mt-3 flex items-center gap-2 text-base font-semibold text-aegent-text">
-                        <Coins className="h-4 w-4 text-aegent-warning" />
-                        {Number(formatEther(agent.stakedAmount)).toFixed(3)} PAS
-                      </p>
-                    </div>
-                    <div className="border border-aegent-border bg-aegent-surface p-4">
-                      <p className="text-[11px] font-mono uppercase tracking-[0.2em] text-aegent-dim">
-                        Registered
-                      </p>
-                      <p className="mt-3 flex items-center gap-2 text-base font-semibold text-aegent-text">
-                        <Clock className="h-4 w-4 text-aegent-accent" />
+                    <div className="border-2 border-[#111217] bg-white p-4">
+                      <p className="text-sm font-black text-[#111217]">Registered</p>
+                      <p className="mt-2 flex items-center gap-2 text-base font-black text-[#111217]">
+                        <Clock className="h-4 w-4 text-[#1f3dff]" />
                         {formatDate(agent.registeredAt)}
                       </p>
+                    </div>
+                    <div className="border-2 border-[#111217] bg-white p-4">
+                      <p className="text-sm font-black text-[#111217]">Status</p>
+                      <div className="mt-2">
+                        <StatusBadge status={agent.status} />
+                      </div>
                     </div>
                   </div>
                 </div>

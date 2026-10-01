@@ -41,6 +41,33 @@ export function ReputationBar({ score, max = 1000 }: { score: number; max?: numb
   );
 }
 
+export function AgentVitalStats({
+  stakePas,
+  completed,
+  failed,
+}: {
+  stakePas: string;
+  completed: number;
+  failed: number;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <div className="border-2 border-[#111217] bg-[#fff] px-2 py-3 sm:px-3">
+        <p className="text-[13px] font-black leading-tight text-[#111217]">My Stake</p>
+        <p className="mt-2 text-lg font-black text-[#1f3dff]">{stakePas} PAS</p>
+      </div>
+      <div className="border-2 border-[#111217] bg-[#fff] px-2 py-3 sm:px-3">
+        <p className="text-[13px] font-black leading-tight text-[#111217]">Tasks Completed</p>
+        <p className="mt-2 text-lg font-black text-[#111217]">{completed}</p>
+      </div>
+      <div className="border-2 border-[#111217] bg-[#fff] px-2 py-3 sm:px-3">
+        <p className="text-[13px] font-black leading-tight text-[#111217]">Tasks Failed</p>
+        <p className="mt-2 text-lg font-black text-[#e23c2f]">{failed}</p>
+      </div>
+    </div>
+  );
+}
+
 export function StatCard({
   label,
   value,
@@ -60,10 +87,10 @@ export function StatCard({
         </div>
         <ArrowUpRight className="h-4 w-4 opacity-50" />
       </div>
-      <span className={`block font-mono text-[11px] uppercase tracking-[0.22em] ${accent ? "text-white/70" : "text-aegent-dim"}`}>
+      <span className={`block text-sm font-black uppercase tracking-wide ${accent ? "text-white" : "text-[#111217]"}`}>
         {label}
       </span>
-      <p className="mt-3 text-3xl font-bold tracking-tight">{value}</p>
+      <p className={`mt-2 text-3xl font-black tracking-tight ${accent ? "text-white" : "text-[#111217]"}`}>{value}</p>
     </div>
   );
 }

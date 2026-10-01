@@ -8,6 +8,11 @@ export const POLKADOT_HUB_RPC_URLS = [
   "https://services.polkadothub-rpc.com/testnet",
 ] as const;
 
+export function appRpcUrl() {
+  if (typeof window === "undefined") return POLKADOT_HUB_RPC_URLS[0];
+  return "/api/rpc";
+}
+
 export const POLKADOT_HUB_EXPLORER = "https://blockscout-testnet.polkadot.io";
 
 export const polkadotHubTestnet = defineChain({
