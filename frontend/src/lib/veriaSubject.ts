@@ -206,7 +206,9 @@ async function fetchOmegaUncached(agentId: string) {
   return data as {
     violationCount: number;
     lastSeverity: string;
+    lastDecision?: string;
     lastLimit?: number;
+    remainingStake?: number;
     summaries: string[];
     events: Record<string, unknown>[];
   };
@@ -223,4 +225,78 @@ export async function fetchOmega(agentId: string) {
   const data = await fetchOmegaUncached(key);
   omegaCache.set(key, { at: Date.now(), data });
   return data;
+}
+
+export const POLICY_EVENT = "veria-policy";
+
+export function notifyPolicyChange(agentId: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(POLICY_EVENT, { detail: { agentId: agentId.toLowerCase() } }));
+}
+
+export type OmegaStanding = {
+  violationCount: number;
+  lastDecision: string;
+  lastSeverity: string;
+  lastSlash: number;
+  lastLimit?: number;
+  remainingStake?: number;
+  reputationDelta: number;
+  trustScore?: number;
+  summaries: string[];
+};
+
+export async function fetchOmegaStandings() {
+  const res = await fetch(`/api/veria/memory?all=1&t=${Date.now()}`, { cache: "no-store" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || data.error || "Omega failed");
+  return (data.agents || {}) as Record<string, OmegaStanding>;
+}
+
+export function applyOmegaScore(chainRep: number, standing?: OmegaStanding | null) {
+  return Math.max(0, Math.min(1000, chainRep + (standing?.reputationDelta ?? 0)));
+}
+
+export function policyStakePas(standing?: OmegaStanding | null, chainPas?: string) {
+  if (standing?.remainingStake == null) return chainPas ?? "0.000";
+  return ((standing.remainingStake * Number(STAKE_UNIT)) / 1e18).toFixed(3);
+}
+
+export function parseAgentId(raw: string): Address | null {
+  const value = raw.trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(value)) return null;
+  return value as Address;
+}
+
+export async function lookupLiveAgent(id: string): Promise<LiveAgent> {
+  const { createPublicClient, getAddress, http } = await import("viem");
+  const { AGENT_REGISTRY_ABI, AGENT_REGISTRY_ADDRESS } = await import("@/lib/contract");
+  const { polkadotHubTestnet } = await import("@/lib/config");
+  const parsed = parseAgentId(id);
+  if (!parsed) throw new Error("Agent id must be a 40-character 0x wallet address.");
+  const address = getAddress(parsed);
+  const rpc =
+    typeof window !== "undefined" ? `${window.location.origin}/api/rpc` : "https://eth-rpc-testnet.polkadot.io";
+  const client = createPublicClient({ chain: polkadotHubTestnet, transport: http(rpc) });
+  const raw = (await client.readContract({
+    address: AGENT_REGISTRY_ADDRESS,
+    abi: AGENT_REGISTRY_ABI,
+    functionName: "getAgent",
+    args: [address],
+  })) as ChainAgent & Record<number, unknown>;
+  const record: ChainAgent = {
+    name: String(raw.name ?? raw[1] ?? ""),
+    modelSpec: String(raw.modelSpec ?? raw[2] ?? ""),
+    reputationScore: (raw.reputationScore ?? raw[6] ?? 0n) as bigint,
+    stakedAmount: (raw.stakedAmount ?? raw[7] ?? 0n) as bigint,
+    status: Number(raw.status ?? raw[8] ?? 0),
+    registeredAt: (raw.registeredAt ?? raw[9] ?? 0n) as bigint,
+    tasksCompleted: (raw.tasksCompleted ?? raw[10] ?? 0n) as bigint,
+    tasksFailed: (raw.tasksFailed ?? raw[11] ?? 0n) as bigint,
+    agentHash: (raw.agentHash ?? raw[5] ?? "0x") as `0x${string}`,
+  };
+  if (!record.registeredAt || record.registeredAt === 0n) {
+    throw new Error("That agent id is not registered on AgentRegistry.");
+  }
+  return toLiveAgent(address, record, 0);
 }

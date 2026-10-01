@@ -1,8 +1,41 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTopAgents, useAgentsPaginated, type AgentData } from "@/hooks/useAgentRegistry";
-import { toLiveAgent, type LiveAgent } from "@/lib/veriaSubject";
+import {
+  fetchOmegaStandings,
+  POLICY_EVENT,
+  type LiveAgent,
+  type OmegaStanding,
+  toLiveAgent,
+} from "@/lib/veriaSubject";
 import type { Address } from "viem";
+
+export function useOmegaStandings() {
+  const [standings, setStandings] = useState<Record<string, OmegaStanding>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetchOmegaStandings()
+        .then((data) => {
+          if (!cancelled) setStandings(data);
+        })
+        .catch(() => {
+          if (!cancelled) setStandings({});
+        });
+    };
+    load();
+    const onPolicy = () => load();
+    window.addEventListener(POLICY_EVENT, onPolicy);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(POLICY_EVENT, onPolicy);
+    };
+  }, []);
+
+  return standings;
+}
 
 export function useLiveRegistryAgents(limit = 20) {
   const top = useTopAgents(limit);

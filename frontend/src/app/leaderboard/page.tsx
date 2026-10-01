@@ -7,7 +7,8 @@ import { agentStillFor } from "@/lib/veriaMedia";
 import Image from "next/image";
 import { Crown, ExternalLink, Medal, Trophy } from "lucide-react";
 import { AgentActionDesk } from "@/components/AgentActionDesk";
-import { useLiveRegistryAgents } from "@/hooks/useLiveAgents";
+import { useLiveRegistryAgents, useOmegaStandings } from "@/hooks/useLiveAgents";
+import { applyOmegaScore, policyStakePas } from "@/lib/veriaSubject";
 import { useState } from "react";
 
 const LEADERBOARD_SIZE = 20;
@@ -16,6 +17,7 @@ export default function LeaderboardPage() {
   const { data: topData, isLoading } = useTopAgents(LEADERBOARD_SIZE);
   const { data: agentsPaginatedData } = useAgentsPaginated(0, LEADERBOARD_SIZE);
   const live = useLiveRegistryAgents(LEADERBOARD_SIZE);
+  const standings = useOmegaStandings();
   const [selected, setSelected] = useState<string | null>(null);
 
   const topAddresses: Address[] = topData ? (topData[0] as Address[]) : [];
@@ -33,21 +35,26 @@ export default function LeaderboardPage() {
     if (agents[i]) agentMap.set(addr.toLowerCase(), agents[i]);
   });
 
-  const rankedAgents = topAddresses.map((addr, rank) => {
-    const agent = agentMap.get(addr?.toLowerCase());
-    const score = Number(topScores[rank] || 0n);
-    const completed = agent ? Number(agent.tasksCompleted) : 0;
-    const failed = agent ? Number(agent.tasksFailed) : 0;
-    const staked = agent ? Number(formatEther(agent.stakedAmount)) : 0;
-
-    return { addr, rank, agent, score, completed, failed, staked };
-  });
+  const rankedAgents = topAddresses
+    .map((addr, rank) => {
+      const agent = agentMap.get(addr?.toLowerCase());
+      const score = Number(topScores[rank] || 0n);
+      const completed = agent ? Number(agent.tasksCompleted) : 0;
+      const failed = agent ? Number(agent.tasksFailed) : 0;
+      const staked = agent ? Number(formatEther(agent.stakedAmount)) : 0;
+      const standing = standings[addr.toLowerCase()];
+      const policyScore = applyOmegaScore(score, standing);
+      const policyStake = Number(policyStakePas(standing, staked.toFixed(3)));
+      return { addr, rank, agent, score, policyScore, standing, completed, failed, staked, policyStake };
+    })
+    .sort((a, b) => b.policyScore - a.policyScore || b.score - a.score)
+    .map((row, index) => ({ ...row, displayRank: index }));
 
   const averageTopScore =
     rankedAgents.length > 0
-      ? Math.round(rankedAgents.reduce((sum, item) => sum + item.score, 0) / rankedAgents.length)
+      ? Math.round(rankedAgents.reduce((sum, item) => sum + item.policyScore, 0) / rankedAgents.length)
       : 0;
-  const totalTopStake = rankedAgents.reduce((sum, item) => sum + item.staked, 0);
+  const totalTopStake = rankedAgents.reduce((sum, item) => sum + item.policyStake, 0);
   function getRankIcon(rank: number) {
     if (rank === 0) return <Crown className="h-5 w-5 text-yellow-400" />;
     if (rank === 1) return <Medal className="h-5 w-5 text-gray-300" />;
@@ -76,8 +83,9 @@ export default function LeaderboardPage() {
               Agent <span className="italic text-aegent-accent">standing</span>
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-aegent-muted sm:text-base">
-              Rank agents by on-chain reputation, then run a MeTTa action against that same registry record. Stake,
-              tasks, and identity come from AgentRegistry. Omega stores the decision for the next request.
+              Rank by MeTTa standing: on-chain reputation plus Omega slash and reputation deltas. A slash will
+              drop the agent here immediately even though AgentRegistry stake only changes after an owner
+              slashAgent transaction.
             </p>
           </div>
 
@@ -104,7 +112,7 @@ export default function LeaderboardPage() {
             const entry = rankedAgents[rank];
             if (!entry) return null;
 
-            const { addr, agent, score, completed, failed, staked } = entry;
+            const { addr, agent, displayRank, policyScore, score, standing, completed, failed, policyStake } = entry;
             const isFirst = rank === 0;
 
             return (
@@ -112,7 +120,7 @@ export default function LeaderboardPage() {
                 key={rank}
                 className={`surface relative overflow-hidden p-6 text-center ${getRankBg(rank)} ${isFirst ? "md:-mt-6" : ""}`}
               >
-                <div className="relative mb-3 flex justify-center">{getRankIcon(rank)}</div>
+                <div className="relative mb-3 flex justify-center">{getRankIcon(displayRank)}</div>
                 <div className="relative mx-auto mb-4 h-16 w-16 overflow-hidden border-2 border-[#111217]">
                   <Image src={agentStillFor(rank)} alt="" fill sizes="64px" className="object-cover" />
                 </div>
@@ -128,14 +136,14 @@ export default function LeaderboardPage() {
                 <p
                   className={`display relative text-4xl ${isFirst ? "text-amber-200" : "text-aegent-text"}`}
                 >
-                  {score}
+                  {policyScore}
                 </p>
                 <p className={`relative mt-1 text-[10px] uppercase tracking-[0.18em] ${isFirst ? "text-white/40" : "text-aegent-dim"}`}>
-                  Reputation
+                  MeTTa standing {standing?.lastDecision ? `· ${standing.lastDecision}` : ""} · chain {score}
                 </p>
                 <div className="relative mt-5">
                   <AgentVitalStats
-                    stakePas={staked.toFixed(2)}
+                    stakePas={policyStake.toFixed(2)}
                     completed={completed}
                     failed={failed}
                   />
@@ -151,7 +159,7 @@ export default function LeaderboardPage() {
           <div>
             <p className="text-sm font-semibold text-aegent-text">Full ranking</p>
             <p className="mt-1 text-sm text-aegent-muted">
-              Compare reputation, task outcomes, and stake across the current top agents.
+              Rank uses MeTTa standing (chain reputation + Omega slash deltas). Chain numbers stay until an owner slash.
             </p>
           </div>
         </div>
@@ -202,14 +210,14 @@ export default function LeaderboardPage() {
                 </td>
               </tr>
             ) : (
-              rankedAgents.map(({ addr, rank, agent, score, completed, failed, staked }) => (
+              rankedAgents.map(({ addr, displayRank, agent, policyScore, score, standing, completed, failed, policyStake }) => (
                 <tr
                   key={addr}
-                  className={`border-b border-aegent-border/60 transition-colors last:border-0 hover:bg-aegent-surface ${rank < 3 ? getRankBg(rank) : ""} ${selected?.toLowerCase() === addr.toLowerCase() ? "bg-[#fff8e8]" : ""}`}
+                  className={`border-b border-aegent-border/60 transition-colors last:border-0 hover:bg-aegent-surface ${displayRank < 3 ? getRankBg(displayRank) : ""} ${selected?.toLowerCase() === addr.toLowerCase() ? "bg-[#fff8e8]" : ""}`}
                   onClick={() => setSelected(addr)}
                 >
                   <td className="px-4 py-3.5">
-                    <div className="flex h-8 w-8 items-center justify-center">{getRankIcon(rank)}</div>
+                    <div className="flex h-8 w-8 items-center justify-center">{getRankIcon(displayRank)}</div>
                   </td>
                   <td className="px-4 py-3.5">
                     <div>
@@ -219,6 +227,11 @@ export default function LeaderboardPage() {
                       <p className="font-mono text-xs text-aegent-dim">
                         {addr.slice(0, 8)}...{addr.slice(-6)}
                       </p>
+                      {standing?.lastDecision ? (
+                        <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[#e23c2f]">
+                          MeTTa {standing.lastDecision} · {standing.violationCount} incidents
+                        </p>
+                      ) : null}
                     </div>
                   </td>
                   <td className="hidden px-4 py-3.5 sm:table-cell">
@@ -227,7 +240,10 @@ export default function LeaderboardPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <ReputationBar score={score} />
+                    <ReputationBar score={policyScore} />
+                    {policyScore !== score ? (
+                      <p className="mt-1 font-mono text-[10px] uppercase text-aegent-dim">chain {score}</p>
+                    ) : null}
                   </td>
                   <td className="hidden px-4 py-3.5 text-right text-base font-black text-[#111217] md:table-cell">
                     {completed}
@@ -236,7 +252,7 @@ export default function LeaderboardPage() {
                     {failed}
                   </td>
                   <td className="hidden px-4 py-3.5 text-right text-base font-black text-[#1f3dff] lg:table-cell">
-                    {staked.toFixed(2)} PAS
+                    {policyStake.toFixed(2)} PAS
                   </td>
                   <td className="px-2 py-3.5">
                     <div className="flex items-center justify-end gap-1">

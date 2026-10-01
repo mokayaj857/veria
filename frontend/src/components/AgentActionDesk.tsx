@@ -7,6 +7,7 @@ import { useAppPath } from "@/lib/appPath";
 import {
   fetchOmega,
   forgetOmega,
+  notifyPolicyChange,
   policyActions,
   reasonPayload,
   reasonWithMetta,
@@ -20,11 +21,13 @@ export function AgentActionDesk({
   agents,
   onPick,
   whenPath,
+  strict = false,
 }: {
   agent: LiveAgent | null;
   agents: LiveAgent[];
   onPick: (address: string) => void;
   whenPath?: string;
+  strict?: boolean;
 }) {
   const { path } = useAppPath();
   const visible = !whenPath || path === whenPath;
@@ -73,7 +76,9 @@ export function AgentActionDesk({
       );
       setResult(out);
       forgetOmega(agent.address);
-      setOmega(out.omegaMemoriesUsed?.length ? out.omegaMemoriesUsed : omega);
+      notifyPolicyChange(agent.address);
+      const nextOmega = await fetchOmega(agent.address);
+      setOmega(nextOmega.summaries?.length ? nextOmega.summaries : out.omegaMemoriesUsed || []);
       if (out.recommendedTransactionLimit) setLimitOverride(out.recommendedTransactionLimit);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -103,7 +108,7 @@ export function AgentActionDesk({
         <div className="surface p-5">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#1f3dff]">On-chain subject</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {agents.map((item) => (
+            {(strict ? [agent] : agents).map((item) => (
               <button
                 key={item.address}
                 type="button"

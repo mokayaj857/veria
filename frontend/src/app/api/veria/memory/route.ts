@@ -5,7 +5,12 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
+    const all = req.nextUrl.searchParams.get("all");
     const agentId = req.nextUrl.searchParams.get("agentId")?.toLowerCase();
+    if (all === "1" || all === "true") {
+      const raw = await runMettaProcess(["memory", "all"]);
+      return NextResponse.json(JSON.parse(raw));
+    }
     if (!agentId) {
       return NextResponse.json({ error: "agentId required" }, { status: 400 });
     }
