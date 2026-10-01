@@ -3,21 +3,16 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { useAccount, useConnect, useDisconnect, useBalance } from "wagmi";
+import { formatEther } from "viem";
 import { ChevronDown, LogOut, Wallet } from "lucide-react";
 import { polkadotHubTestnet } from "@/lib/config";
-import {
-  discoverWallets,
-  promptWallet,
-  ensurePolkadotHubNetwork,
-  type DetectedWallet,
-  walletErrorMessage,
-} from "@/lib/wallet";
+import { discoverWallets, ensurePolkadotHubNetwork, type DetectedWallet, walletErrorMessage } from "@/lib/wallet";
+import { useVeriaWallet } from "@/lib/walletSession";
 
 const LOGO = "/veria-logo.jpg";
 
 export function ConnectWalletButton() {
-  const { connectAsync, connectors } = useConnect();
+  const { connect } = useVeriaWallet();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -28,15 +23,7 @@ export function ConnectWalletButton() {
     setError(null);
     setPickerOpen(false);
     try {
-      await promptWallet(wallet.provider);
-      const connector = connectors[0];
-      if (connector) {
-        try {
-          await connectAsync({ connector });
-        } catch {
-          // Accounts are already authorized on the extension; wagmi sync is best-effort.
-        }
-      }
+      await connect(wallet);
     } catch (err) {
       const message = walletErrorMessage(err);
       setError(message);
@@ -97,15 +84,9 @@ export function ConnectWalletButton() {
 }
 
 export function WalletControl() {
-  const { address, isConnected, chain } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { data: balance } = useBalance({
-    address,
-    chainId: polkadotHubTestnet.id,
-    query: { enabled: Boolean(address) },
-  });
+  const { address, isConnected, chainId, provider, balance, disconnect } = useVeriaWallet();
   const [menuOpen, setMenuOpen] = useState(false);
-  const isWrongNetwork = isConnected && chain?.id !== polkadotHubTestnet.id;
+  const isWrongNetwork = isConnected && chainId !== polkadotHubTestnet.id;
 
   if (!isConnected) {
     return <ConnectWalletButton />;
@@ -145,9 +126,7 @@ export function WalletControl() {
                   <button
                     type="button"
                     onClick={() =>
-                      ensurePolkadotHubNetwork(
-                        discoverWallets()[0]?.provider
-                      ).catch((err) => toast.error(walletErrorMessage(err)))
+                      ensurePolkadotHubNetwork(provider).catch((err) => toast.error(walletErrorMessage(err)))
                     }
                     className="border border-aegent-warning/40 bg-amber-50 px-3 py-1.5 text-xs font-medium text-aegent-warning"
                   >
@@ -161,7 +140,7 @@ export function WalletControl() {
             <div className="border border-aegent-border bg-aegent-surface p-3">
               <p className="kicker">Balance</p>
               <p className="mt-2 text-sm font-medium">
-                {balance ? `${Number(balance.formatted).toFixed(3)} PAS` : "..."}
+                {balance !== undefined ? `${Number(formatEther(balance)).toFixed(3)} PAS` : "..."}
               </p>
             </div>
           </div>

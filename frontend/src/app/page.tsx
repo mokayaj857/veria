@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAccount } from "wagmi";
+import { useVeriaWallet } from "@/lib/walletSession";
 import { formatEther } from "viem";
 import { useRegistryStats } from "@/hooks/useAgentRegistry";
 import { TrustDesk } from "@/components/TrustDesk";
@@ -186,7 +186,7 @@ function AnimatedStatValue({
 }
 
 export default function LandingPage() {
-  const { isConnected } = useAccount();
+  const { isConnected } = useVeriaWallet();
   const { data: stats, isLoading: statsLoading } = useRegistryStats();
   const [activeAgent, setActiveAgent] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);

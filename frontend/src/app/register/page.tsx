@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useAccount } from "wagmi";
+import { useVeriaWallet } from "@/lib/walletSession";
 import { ConnectWalletButton } from "@/components/ConnectWallet";
 import { formatEther, parseEther, keccak256, toBytes } from "viem";
 import { useCreateRegistrationSignature, useMinStake, useRegisterAgent } from "@/hooks/useAgentRegistry";
@@ -54,7 +54,7 @@ const REGISTRATION_STEPS = [
 ];
 
 export default function RegisterPage() {
-  const { isConnected, address } = useAccount();
+  const { isConnected, address } = useVeriaWallet();
   const { register, hash, isPending, isConfirming, isSuccess, error, reset, retryStatus } =
     useRegisterAgent();
   const { createSignature } = useCreateRegistrationSignature();

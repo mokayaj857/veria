@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useAccount } from "wagmi";
+import { useVeriaWallet } from "@/lib/walletSession";
 import { ConnectWalletButton } from "@/components/ConnectWallet";
 import { formatEther, type Address } from "viem";
 import { ReputationBar, StatusBadge, StatCard } from "@/components/UI";
@@ -41,7 +41,7 @@ function parseMetadata(metaStr: string) {
 }
 
 export default function DashboardPage() {
-  const { isConnected, address } = useAccount();
+  const { isConnected, address } = useVeriaWallet();
   const { data: myAgent } = useAgent(address);
   const { data: withdrawalReq } = useWithdrawalRequest(address);
 

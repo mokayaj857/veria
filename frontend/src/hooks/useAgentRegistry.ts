@@ -1,11 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { useReadContract, useSendTransaction, useWaitForTransactionReceipt, useAccount, useSignMessage } from "wagmi";
+import { useReadContract, useWaitForTransactionReceipt } from "wagmi";
 import { AGENT_REGISTRY_ADDRESS, AGENT_REGISTRY_ABI } from "@/lib/contract";
 import { polkadotHubTestnet } from "@/lib/config";
 import { ensurePolkadotHubNetwork } from "@/lib/wallet";
-import { parseEther, keccak256, encodePacked, encodeFunctionData, type Address } from "viem";
+import { getWalletSession, useVeriaWallet } from "@/lib/walletSession";
+import {
+  parseEther,
+  keccak256,
+  encodePacked,
+  encodeFunctionData,
+  createWalletClient,
+  custom,
+  type Address,
+  type Hex,
+} from "viem";
 
 const registry = {
   address: AGENT_REGISTRY_ADDRESS,
@@ -102,20 +112,59 @@ export function useAgentAddresses() {
   });
 }
 
-// ─── Write Hook ─────────────────────────────────────────────────
-// Uses useSendTransaction instead of useWriteContract.
-// Why: useWriteContract always runs eth_call simulation before sending,
-// which hits Polkadot testnet RPC rate limit. useSendTransaction
-// sends the raw tx directly to MetaMask — zero extra RPC calls from viem.
-
-export function useRegisterAgent() {
-  const { address } = useAccount();
-  const { sendTransactionAsync, data: hash, isPending, error, reset } = useSendTransaction();
+function useRegistryWrite() {
+  const { address } = useVeriaWallet();
+  const [hash, setHash] = useState<Hex | undefined>();
+  const [isPending, setPending] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
     chainId: polkadotHubTestnet.id,
     pollingInterval: 4_000,
   });
+
+  async function send(data: Hex, value?: bigint, gas = BigInt(500_000)) {
+    const { provider, address: sessionAddress } = getWalletSession();
+    const account = sessionAddress || address;
+    if (!provider || !account) throw new Error("Connect a wallet first");
+
+    setPending(true);
+    setError(null);
+    try {
+      await ensurePolkadotHubNetwork(provider);
+      const client = createWalletClient({
+        account,
+        chain: polkadotHubTestnet,
+        transport: custom(provider),
+      });
+      const txHash = await client.sendTransaction({
+        account,
+        to: AGENT_REGISTRY_ADDRESS,
+        data,
+        value,
+        gas,
+        chain: polkadotHubTestnet,
+      });
+      setHash(txHash);
+      return txHash;
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function reset() {
+    setHash(undefined);
+    setError(null);
+  }
+
+  return { address, send, hash, isPending, isConfirming, isSuccess, error, reset };
+}
+
+export function useRegisterAgent() {
+  const write = useRegistryWrite();
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
 
   async function register(
@@ -126,8 +175,6 @@ export function useRegisterAgent() {
     signature: `0x${string}`,
     stakeEther: string
   ) {
-    await ensurePolkadotHubNetwork();
-
     const data = encodeFunctionData({
       abi: AGENT_REGISTRY_ABI,
       functionName: "registerAgent",
@@ -142,17 +189,10 @@ export function useRegisterAgent() {
           setRetryStatus(`RPC busy — retrying (${attempt + 1}/${MAX_RETRIES})...`);
           await new Promise((r) => setTimeout(r, 4_000));
           setRetryStatus(null);
-          reset();
+          write.reset();
         }
 
-        await sendTransactionAsync({
-          account: address,
-          chainId: polkadotHubTestnet.id,
-          to: AGENT_REGISTRY_ADDRESS,
-          data,
-          value: parseEther(stakeEther),
-          gas: BigInt(1_000_000),
-        });
+        await write.send(data, parseEther(stakeEther), BigInt(1_000_000));
         return;
       } catch (err: any) {
         const isRateLimit =
@@ -171,12 +211,12 @@ export function useRegisterAgent() {
 
   return {
     register,
-    hash,
-    isPending,
-    isConfirming,
-    isSuccess,
-    error,
-    reset,
+    hash: write.hash,
+    isPending: write.isPending,
+    isConfirming: write.isConfirming,
+    isSuccess: write.isSuccess,
+    error: write.error,
+    reset: write.reset,
     retryStatus,
   };
 }
@@ -184,29 +224,15 @@ export function useRegisterAgent() {
 // ─── Peer Review Hook ────────────────────────────────────────────
 
 export function useReviewAgent() {
-  const { address } = useAccount();
-  const { sendTransactionAsync, data: hash, isPending, error, reset } = useSendTransaction();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-    chainId: polkadotHubTestnet.id,
-    pollingInterval: 4_000,
-  });
+  const { send, hash, isPending, isConfirming, isSuccess, error, reset } = useRegistryWrite();
 
   async function review(target: Address, positive: boolean) {
-    await ensurePolkadotHubNetwork();
     const data = encodeFunctionData({
       abi: AGENT_REGISTRY_ABI,
       functionName: "reviewAgent",
       args: [target, positive],
     });
-
-    await sendTransactionAsync({
-      account: address,
-      chainId: polkadotHubTestnet.id,
-      to: AGENT_REGISTRY_ADDRESS,
-      data,
-      gas: BigInt(500_000),
-    });
+    await send(data);
   }
 
   return { review, hash, isPending, isConfirming, isSuccess, error, reset };
@@ -233,117 +259,80 @@ export function useWithdrawalRequest(agent: Address | undefined) {
 }
 
 export function useRequestWithdrawal() {
-  const { address } = useAccount();
-  const { sendTransactionAsync, data: hash, isPending, error, reset } = useSendTransaction();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-    chainId: polkadotHubTestnet.id,
-    pollingInterval: 4_000,
-  });
+  const { send, hash, isPending, isConfirming, isSuccess, error, reset } = useRegistryWrite();
 
   async function requestWithdrawal(amount: bigint) {
-    await ensurePolkadotHubNetwork();
     const data = encodeFunctionData({
       abi: AGENT_REGISTRY_ABI,
       functionName: "requestWithdrawal",
       args: [amount],
     });
-
-    await sendTransactionAsync({
-      account: address,
-      chainId: polkadotHubTestnet.id,
-      to: AGENT_REGISTRY_ADDRESS,
-      data,
-      gas: BigInt(500_000),
-    });
+    await send(data);
   }
 
   return { requestWithdrawal, hash, isPending, isConfirming, isSuccess, error, reset };
 }
 
 export function useExecuteWithdrawal() {
-  const { address } = useAccount();
-  const { sendTransactionAsync, data: hash, isPending, error, reset } = useSendTransaction();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-    chainId: polkadotHubTestnet.id,
-    pollingInterval: 4_000,
-  });
+  const { send, hash, isPending, isConfirming, isSuccess, error, reset } = useRegistryWrite();
 
   async function executeWithdrawal() {
-    await ensurePolkadotHubNetwork();
     const data = encodeFunctionData({
       abi: AGENT_REGISTRY_ABI,
       functionName: "executeWithdrawal",
       args: [],
     });
-
-    await sendTransactionAsync({
-      account: address,
-      chainId: polkadotHubTestnet.id,
-      to: AGENT_REGISTRY_ADDRESS,
-      data,
-      gas: BigInt(500_000),
-    });
+    await send(data);
   }
 
   return { executeWithdrawal, hash, isPending, isConfirming, isSuccess, error, reset };
 }
 
 export function useCancelWithdrawal() {
-  const { address } = useAccount();
-  const { sendTransactionAsync, data: hash, isPending, error, reset } = useSendTransaction();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-    chainId: polkadotHubTestnet.id,
-    pollingInterval: 4_000,
-  });
+  const { send, hash, isPending, isConfirming, isSuccess, error, reset } = useRegistryWrite();
 
   async function cancelWithdrawal() {
-    await ensurePolkadotHubNetwork();
     const data = encodeFunctionData({
       abi: AGENT_REGISTRY_ABI,
       functionName: "cancelWithdrawal",
       args: [],
     });
-
-    await sendTransactionAsync({
-      account: address,
-      chainId: polkadotHubTestnet.id,
-      to: AGENT_REGISTRY_ADDRESS,
-      data,
-      gas: BigInt(500_000),
-    });
+    await send(data);
   }
 
   return { cancelWithdrawal, hash, isPending, isConfirming, isSuccess, error, reset };
 }
 
-// ─── Signature Helper ───────────────────────────────────────────
-
 export function useCreateRegistrationSignature() {
-  const { address } = useAccount();
-  const { signMessageAsync } = useSignMessage();
+  const { address, provider } = useVeriaWallet();
 
   async function createSignature(
     name: string,
     modelSpec: string,
     publicKey: `0x${string}`
   ): Promise<`0x${string}`> {
-    if (!address) throw new Error("Wallet not connected");
+    const session = getWalletSession();
+    const account = session.address || address;
+    const wallet = session.provider || provider;
+    if (!account || !wallet) throw new Error("Wallet not connected");
 
     const innerHash = keccak256(
       encodePacked(
         ["address", "string", "string", "bytes32"],
-        [address, name, modelSpec, publicKey]
+        [account, name, modelSpec, publicKey]
       )
     );
 
-    const signature = await signMessageAsync({
-      message: { raw: innerHash as `0x${string}` },
+    const client = createWalletClient({
+      account,
+      chain: polkadotHubTestnet,
+      transport: custom(wallet),
     });
 
-    return signature;
+    return client.signMessage({
+      account,
+      message: { raw: innerHash },
+    });
   }
 
   return { createSignature };

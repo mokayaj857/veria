@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "wagmi";
+import { useVeriaWallet } from "@/lib/walletSession";
 import { formatEther, parseEther, type Address } from "viem";
 import { toast } from "sonner";
 import {
@@ -41,7 +41,7 @@ import {
 const PAGE_SIZE = 12;
 
 function ReviewButtons({ targetAddr }: { targetAddr: Address }) {
-  const { address } = useAccount();
+  const { address } = useVeriaWallet();
   const { data: hasReviewed } = useHasReviewed(address, targetAddr);
   const { data: myAgent } = useAgent(address);
   const { review, isPending, isConfirming, isSuccess, error, reset } = useReviewAgent();
@@ -118,7 +118,7 @@ function ReviewButtons({ targetAddr }: { targetAddr: Address }) {
 }
 
 function ReviewStatus({ targetAddr }: { targetAddr: Address }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useVeriaWallet();
   const { data: hasReviewed } = useHasReviewed(address, targetAddr);
   const { data: myAgent } = useAgent(address);
 
@@ -146,7 +146,7 @@ function ReviewStatus({ targetAddr }: { targetAddr: Address }) {
 }
 
 function ReviewFooter({ targetAddr }: { targetAddr: Address }) {
-  const { isConnected } = useAccount();
+  const { isConnected } = useVeriaWallet();
 
   if (!isConnected) return null;
 
@@ -161,7 +161,7 @@ function ReviewFooter({ targetAddr }: { targetAddr: Address }) {
 }
 
 function WithdrawalPanel() {
-  const { address } = useAccount();
+  const { address } = useVeriaWallet();
   const { data: myAgent } = useAgent(address);
   const { data: withdrawalReq } = useWithdrawalRequest(address);
   const { requestWithdrawal, isPending: reqPending, isSuccess: reqSuccess, reset: reqReset } =

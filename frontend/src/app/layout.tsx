@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { IBM_Plex_Mono, Manrope, Syne } from "next/font/google";
 import { Toaster } from "sonner";
 import { Providers } from "@/lib/providers";
@@ -38,6 +39,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <Script src="/wallet-guard.js" strategy="beforeInteractive" />
+      </head>
       <body className={`${syne.variable} ${manrope.variable} ${ibm.variable} font-sans antialiased min-h-screen bg-aegent-bg text-aegent-text`}>
         <Providers>
           <div className="page-frame min-h-screen">

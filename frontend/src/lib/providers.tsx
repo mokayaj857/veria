@@ -3,12 +3,12 @@
 import { ReactNode } from "react";
 import { WagmiProvider, createConfig, http, fallback } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { injected } from "wagmi/connectors";
 import { polkadotHubTestnet, POLKADOT_HUB_RPC_URLS } from "./config";
 
 const config = createConfig({
   chains: [polkadotHubTestnet],
-  connectors: [injected({ shimDisconnect: true })],
+  connectors: [],
+  multiInjectedProviderDiscovery: false,
   transports: {
     [polkadotHubTestnet.id]: fallback(
       POLKADOT_HUB_RPC_URLS.map((url) => http(url, { retryCount: 1, timeout: 12_000 }))

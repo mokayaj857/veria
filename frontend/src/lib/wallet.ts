@@ -42,14 +42,14 @@ export function discoverWallets(): DetectedWallet[] {
   window.dispatchEvent(new Event("eip6963:requestProvider"));
   window.removeEventListener("eip6963:announceProvider", onAnnounce);
 
-  const ethereum = (window as Window & { ethereum?: EthereumProvider }).ethereum;
-  if (Array.isArray(ethereum?.providers)) {
-    for (const provider of ethereum.providers) {
-      add(provider?.isMetaMask ? "MetaMask" : "Injected wallet", provider);
+  // Only fall back to window.ethereum when no EIP-6963 wallet announced.
+  // Phantom and MetaMask both try to own window.ethereum; using it causes
+  // "Cannot redefine property: ethereum" and broken connect prompts.
+  if (detected.length === 0) {
+    const ethereum = (window as Window & { ethereum?: EthereumProvider }).ethereum;
+    if (ethereum) {
+      add(ethereum.isMetaMask ? "MetaMask" : "Browser wallet", ethereum);
     }
-  }
-  if (ethereum) {
-    add(ethereum.isMetaMask ? "MetaMask" : "Browser wallet", ethereum);
   }
 
   detected.sort((a, b) => {
@@ -75,16 +75,6 @@ export function parseChainId(value: unknown) {
 }
 
 export async function promptWallet(provider: EthereumProvider) {
-  try {
-    await provider.request({
-      method: "wallet_requestPermissions",
-      params: [{ eth_accounts: {} }],
-    });
-  } catch (err: unknown) {
-    const code = typeof err === "object" && err && "code" in err ? Number((err as { code: number }).code) : 0;
-    if (code === 4001) throw err;
-  }
-
   const accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
   if (!accounts?.length) {
     throw new Error("The wallet did not return an account.");
