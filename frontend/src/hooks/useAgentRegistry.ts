@@ -47,6 +47,13 @@ export function useRegistryStats() {
   });
 }
 
+export function useMinStake() {
+  return useReadContract({
+    ...registry,
+    functionName: "MIN_STAKE",
+  });
+}
+
 export function useAgentCount() {
   return useReadContract({
     ...registry,

@@ -16,6 +16,7 @@ import {
   useRegistryStats,
   useReviewAgent,
   useWithdrawalRequest,
+  useMinStake,
 } from "@/hooks/useAgentRegistry";
 import { ReputationBar, StatusBadge } from "@/components/UI";
 import { agentStillFor } from "@/lib/veriaMedia";
@@ -168,6 +169,7 @@ function WithdrawalPanel() {
   const { executeWithdrawal, isPending: execPending, isSuccess: execSuccess, reset: execReset } =
     useExecuteWithdrawal();
   const { cancelWithdrawal, isPending: cancelPending } = useCancelWithdrawal();
+  const { data: minStakeWei } = useMinStake();
   const [amount, setAmount] = useState("");
 
   if (!address || !myAgent) return null;
@@ -179,7 +181,7 @@ function WithdrawalPanel() {
   const hasPending = pendingAmount > 0n;
   const cooldownEnd = requestedAt > 0n ? Number(requestedAt) + 3 * 24 * 3600 : 0;
   const canExecute = hasPending && Date.now() / 1000 >= cooldownEnd;
-  const maxWithdraw = agent.stakedAmount - parseEther("0.01");
+  const maxWithdraw = agent.stakedAmount - (minStakeWei ?? parseEther("0.01"));
 
   return (
     <section className="surface p-6">

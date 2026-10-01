@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
 import { IBM_Plex_Mono, Manrope, Syne } from "next/font/google";
 import { Toaster } from "sonner";
 import { Providers } from "@/lib/providers";
+import { Navigation } from "@/components/Navigation";
 import "./globals.css";
 
 const syne = Syne({
@@ -24,15 +24,10 @@ const ibm = IBM_Plex_Mono({
   display: "swap",
 });
 
-const Navigation = dynamic(
-  () => import("@/components/Navigation").then((mod) => mod.Navigation),
-  { ssr: false }
-);
-
 export const metadata: Metadata = {
   title: "VERIA — Verifiable intelligence for autonomous agents",
   description:
-    "Verifiable intelligence for autonomous agents. VERIA registers identity and stake, records behavior, then uses MeTTa and Omega to approve, reject, or limit actions — and show exactly why.",
+    "Verifiable intelligence for autonomous agents. VERIA registers agent identity and stake, records behavior, then uses MeTTa and Omega to approve, reject, or limit actions — and show exactly why.",
   icons: {
     icon: "/veria-logo.jpg",
     shortcut: "/veria-logo.jpg",

@@ -56,6 +56,7 @@ export function Navigation() {
                 <Link
                   key={href}
                   href={href}
+                  prefetch
                   className={`flex items-center gap-2 px-3 py-2 text-sm font-bold ${
                     isActive ? "bg-[#111217] text-white" : "text-[#111217] hover:bg-[#1f3dff] hover:text-white"
                   }`}

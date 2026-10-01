@@ -11,19 +11,54 @@ export type EthereumProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
 };
 
-export function getInjectedProvider(): EthereumProvider | undefined {
-  if (typeof window === "undefined") return undefined;
-  const ethereum = (window as Window & { ethereum?: EthereumProvider }).ethereum;
-  if (!ethereum) return undefined;
+export type DetectedWallet = {
+  name: string;
+  rdns: string;
+  provider: EthereumProvider;
+};
 
-  if (Array.isArray(ethereum.providers) && ethereum.providers.length > 0) {
-    return (
-      ethereum.providers.find((provider: EthereumProvider) => provider?.isMetaMask) ??
-      ethereum.providers[0]
-    );
+export function discoverWallets(): DetectedWallet[] {
+  if (typeof window === "undefined") return [];
+
+  const detected: DetectedWallet[] = [];
+  const seen = new WeakSet<object>();
+
+  function add(name: string, provider: EthereumProvider | undefined, rdns = "") {
+    if (!provider || seen.has(provider)) return;
+    seen.add(provider);
+    detected.push({ name, rdns, provider });
   }
 
-  return ethereum;
+  const onAnnounce = (event: Event) => {
+    const detail = (event as CustomEvent).detail as
+      | { info?: { name?: string; rdns?: string }; provider?: EthereumProvider }
+      | undefined;
+    if (detail?.provider) {
+      add(detail.info?.name || "Wallet", detail.provider, detail.info?.rdns || "");
+    }
+  };
+
+  window.addEventListener("eip6963:announceProvider", onAnnounce);
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+  window.removeEventListener("eip6963:announceProvider", onAnnounce);
+
+  const ethereum = (window as Window & { ethereum?: EthereumProvider }).ethereum;
+  if (Array.isArray(ethereum?.providers)) {
+    for (const provider of ethereum.providers) {
+      add(provider?.isMetaMask ? "MetaMask" : "Injected wallet", provider);
+    }
+  }
+  if (ethereum) {
+    add(ethereum.isMetaMask ? "MetaMask" : "Browser wallet", ethereum);
+  }
+
+  detected.sort((a, b) => {
+    const score = (wallet: DetectedWallet) =>
+      wallet.rdns === "io.metamask" || /metamask/i.test(wallet.name) ? 0 : 1;
+    return score(a) - score(b);
+  });
+
+  return detected;
 }
 
 export function parseChainId(value: unknown) {
@@ -31,25 +66,35 @@ export function parseChainId(value: unknown) {
   if (typeof value === "bigint") return Number(value);
   if (typeof value === "string") {
     const trimmed = value.trim();
-    if (trimmed.startsWith("0x") || trimmed.startsWith("0X")) return Number.parseInt(trimmed, 16);
+    if (trimmed.startsWith("0x") || trimmed.startsWith("0X")) {
+      return Number.parseInt(trimmed, 16);
+    }
     return Number(trimmed);
   }
   return NaN;
 }
 
-export async function requestWalletAccounts() {
-  const provider = getInjectedProvider();
-  if (!provider) {
-    throw new Error("No browser wallet found. Install MetaMask and refresh this page.");
+export async function promptWallet(provider: EthereumProvider) {
+  try {
+    await provider.request({
+      method: "wallet_requestPermissions",
+      params: [{ eth_accounts: {} }],
+    });
+  } catch (err: unknown) {
+    const code = typeof err === "object" && err && "code" in err ? Number((err as { code: number }).code) : 0;
+    if (code === 4001) throw err;
   }
+
   const accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
   if (!accounts?.length) {
-    throw new Error("MetaMask did not return an account.");
+    throw new Error("The wallet did not return an account.");
   }
+
+  await ensurePolkadotHubNetwork(provider);
   return accounts;
 }
 
-export async function ensurePolkadotHubNetwork(provider = getInjectedProvider()) {
+export async function ensurePolkadotHubNetwork(provider: EthereumProvider | undefined) {
   if (!provider) return;
 
   const current = parseChainId(await provider.request({ method: "eth_chainId" }));
@@ -83,11 +128,13 @@ export async function ensurePolkadotHubNetwork(provider = getInjectedProvider())
 export function walletErrorMessage(err: unknown) {
   if (!err) return "Wallet request failed.";
   if (typeof err === "string") return err;
-  const anyErr = err as { shortMessage?: string; message?: string; code?: number; cause?: { message?: string } };
-  if (anyErr.code === 4001) return "Request rejected in MetaMask.";
+  const anyErr = err as {
+    shortMessage?: string;
+    message?: string;
+    code?: number;
+    cause?: { message?: string };
+  };
+  if (anyErr.code === 4001) return "You rejected the request in the wallet.";
   const raw = anyErr.shortMessage || anyErr.cause?.message || anyErr.message || "Wallet request failed.";
-  if (raw.toLowerCase().includes("connector") && raw.toLowerCase().includes("not found")) {
-    return "MetaMask is installed but not reachable. Unlock MetaMask and refresh.";
-  }
   return raw.replace(/^ConnectorNotFoundError:\s*/i, "");
 }

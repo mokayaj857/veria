@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useAccount } from "wagmi";
 import { ConnectWalletButton } from "@/components/ConnectWallet";
-import { keccak256, toBytes } from "viem";
-import { useCreateRegistrationSignature, useRegisterAgent } from "@/hooks/useAgentRegistry";
+import { formatEther, parseEther, keccak256, toBytes } from "viem";
+import { useCreateRegistrationSignature, useMinStake, useRegisterAgent } from "@/hooks/useAgentRegistry";
+import { AGENT_REGISTRY_ADDRESS } from "@/lib/contract";
 import {
   AlertCircle,
   CheckCircle,
@@ -57,6 +58,9 @@ export default function RegisterPage() {
   const { register, hash, isPending, isConfirming, isSuccess, error, reset, retryStatus } =
     useRegisterAgent();
   const { createSignature } = useCreateRegistrationSignature();
+  const { data: minStakeWei } = useMinStake();
+  const minStakePas = minStakeWei ? formatEther(minStakeWei) : "0.01";
+  const minStakeUsd = "0.001";
 
   const [form, setForm] = useState({
     name: "",
@@ -69,6 +73,16 @@ export default function RegisterPage() {
 
   const [step, setStep] = useState<"form" | "signing" | "submitting">("form");
   const [signError, setSignError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!minStakeWei) return;
+    setForm((prev) => {
+      if (prev.stakeAmount === "0.01" || Number(prev.stakeAmount) < Number(minStakePas)) {
+        return { ...prev, stakeAmount: minStakePas };
+      }
+      return prev;
+    });
+  }, [minStakeWei, minStakePas]);
 
   function updateForm(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -86,6 +100,10 @@ export default function RegisterPage() {
     reset();
 
     if (!address || !form.name || !modelSpec) return;
+    if (!minStakeWei || parseEther(form.stakeAmount) < minStakeWei) {
+      setSignError(`Stake must be at least ${minStakePas} PAS ($${minStakeUsd} USD) from AgentRegistry.`);
+      return;
+    }
 
     try {
       setStep("signing");
@@ -167,8 +185,17 @@ export default function RegisterPage() {
               Register your <span className="italic text-aegent-accent">VERIA identity</span>
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-aegent-muted sm:text-base">
-              Bind an agent to a wallet, stake tokens for accountability, and start the trail MeTTa and Omega will use for every later trust decision.
+              Bind an agent to a wallet, stake at least ${minStakeUsd} USD ({minStakePas} PAS from AgentRegistry), and start the trail MeTTa and Omega will use for every later trust decision.
             </p>
+            <a
+              href={`https://blockscout-testnet.polkadot.io/address/${AGENT_REGISTRY_ADDRESS}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-2 font-mono text-[11px] text-aegent-accent hover:underline"
+            >
+              Registry {AGENT_REGISTRY_ADDRESS.slice(0, 6)}...{AGENT_REGISTRY_ADDRESS.slice(-4)}
+              <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -176,7 +203,8 @@ export default function RegisterPage() {
               <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-aegent-dim">
                 Minimum stake
               </p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-aegent-text">0.01 PAS</p>
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-aegent-text">${minStakeUsd} USD</p>
+              <p className="mt-1 font-mono text-[11px] text-aegent-dim">{minStakePas} PAS on-chain</p>
             </div>
             <div className="border border-aegent-border bg-aegent-surface px-5 py-4">
               <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-aegent-dim">
@@ -297,7 +325,7 @@ export default function RegisterPage() {
                       Staked PAS
                     </p>
                     <p className="mt-2 text-lg font-semibold text-aegent-text">
-                      {form.stakeAmount || "0.01"} PAS
+                      {form.stakeAmount || minStakePas} PAS
                     </p>
                   </div>
                 </div>
@@ -366,15 +394,15 @@ export default function RegisterPage() {
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-aegent-text">
-                      Stake amount (PAS) *
+                      Stake amount *
                     </label>
                     <div className="relative">
                       <input
                         type="number"
                         value={form.stakeAmount}
                         onChange={(e) => updateForm("stakeAmount", e.target.value)}
-                        min="0.01"
-                        step="0.01"
+                        min={minStakePas}
+                        step="0.001"
                         required
                         className="field"
                       />
@@ -383,7 +411,7 @@ export default function RegisterPage() {
                       </span>
                     </div>
                     <p className="mt-1.5 text-xs text-aegent-dim">
-                      Minimum 0.01 PAS. More stake means stronger accountability.
+                      Minimum ${minStakeUsd} USD ({minStakePas} PAS), read from AgentRegistry.
                     </p>
                   </div>
                 </div>

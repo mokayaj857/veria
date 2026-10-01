@@ -11,7 +11,7 @@ const config = createConfig({
   connectors: [injected({ shimDisconnect: true })],
   transports: {
     [polkadotHubTestnet.id]: fallback(
-      POLKADOT_HUB_RPC_URLS.map((url) => http(url, { retryCount: 2, timeout: 20_000 }))
+      POLKADOT_HUB_RPC_URLS.map((url) => http(url, { retryCount: 1, timeout: 12_000 }))
     ),
   },
   ssr: false,
@@ -21,15 +21,16 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 15_000,
+      refetchOnReconnect: false,
+      retry: 0,
+      staleTime: 30_000,
     },
   },
 });
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <WagmiProvider config={config} reconnectOnMount>
+    <WagmiProvider config={config} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   );
