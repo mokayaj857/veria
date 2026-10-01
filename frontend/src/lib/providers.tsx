@@ -1,52 +1,38 @@
 "use client";
+
 import { ReactNode } from "react";
-import { WagmiProvider, createConfig, http } from "wagmi";
+import { WagmiProvider, createConfig, http, fallback } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { injected } from "wagmi/connectors";
-import { polkadotHubTestnet } from "./config";
+import { polkadotHubTestnet, POLKADOT_HUB_RPC_URLS } from "./config";
 
-// Route all wagmi RPC calls through our /api/rpc proxy.
-// The proxy serialises requests with a 1.5s gap so we never
-// hit Polkadot testnet's aggressive rate limit (-32002).
-// MetaMask still calls the upstream RPC directly for tx sends,
-// but wagmi reads no longer compete for the same quota.
 const config = createConfig({
   chains: [polkadotHubTestnet],
-  connectors: [injected({ target: "metaMask" })],
+  connectors: [injected({ shimDisconnect: true })],
   transports: {
-    [polkadotHubTestnet.id]: http("/api/rpc", {
-      batch: {
-        batchSize: 100,
-        wait: 300, // collect calls into one proxy request
-      },
-      retryCount: 3,
-      retryDelay: 5000,
-      timeout: 60_000,
-    }),
+    [polkadotHubTestnet.id]: fallback(
+      POLKADOT_HUB_RPC_URLS.map((url) => http(url, { retryCount: 2, timeout: 20_000 }))
+    ),
   },
-  pollingInterval: 0,
+  ssr: false,
 });
 
-// react-query: disable background refetching globally.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      refetchInterval: false,
-      retry: 2,
-      retryDelay: 3000,
-      staleTime: 60_000,      // data stays fresh for 60s
-      gcTime: 5 * 60_000,     // garbage collect after 5min
+      retry: 1,
+      staleTime: 15_000,
     },
   },
 });
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={config} reconnectOnMount>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   );
 }
+
 export { config };

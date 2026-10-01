@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useAccount } from "wagmi";
+import { ConnectWalletButton } from "@/components/ConnectWallet";
 import { keccak256, toBytes } from "viem";
 import { useCreateRegistrationSignature, useRegisterAgent } from "@/hooks/useAgentRegistry";
 import {
@@ -122,6 +123,9 @@ export default function RegisterPage() {
             Registration ties the agent to the wallet that owns it, signs the identity claim, and
             provides the stake used for accountability on-chain.
           </p>
+          <div className="mt-8 flex justify-center">
+            <ConnectWalletButton />
+          </div>
         </section>
       </div>
     );

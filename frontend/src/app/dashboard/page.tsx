@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useAccount } from "wagmi";
+import { ConnectWalletButton } from "@/components/ConnectWallet";
 import { formatEther, type Address } from "viem";
 import { ReputationBar, StatusBadge, StatCard } from "@/components/UI";
 import {
@@ -65,7 +66,8 @@ export default function DashboardPage() {
           <p className="mx-auto mt-4 max-w-xl text-base leading-8 text-aegent-muted">
             This view is bound to the wallet you connect. It shows the identity you registered, stake, reputation, and any pending withdrawal.
           </p>
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <ConnectWalletButton />
             <Link href="/" className="btn-paper">
               Back to landing
             </Link>
