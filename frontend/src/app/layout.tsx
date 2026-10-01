@@ -4,7 +4,6 @@ import { IBM_Plex_Mono, Manrope, Syne } from "next/font/google";
 import { Toaster } from "sonner";
 import { Providers } from "@/lib/providers";
 import { Navigation } from "@/components/Navigation";
-import { SiteShell } from "@/components/SiteShell";
 import { AppPathProvider } from "@/lib/appPath";
 import "./globals.css";
 
@@ -12,12 +11,16 @@ const syne = Syne({
   subsets: ["latin"],
   variable: "--font-syne",
   display: "swap",
+  preload: false,
+  fallback: ["sans-serif"],
 });
 
 const manrope = Manrope({
   subsets: ["latin"],
   variable: "--font-manrope",
   display: "swap",
+  preload: false,
+  fallback: ["sans-serif"],
 });
 
 const ibm = IBM_Plex_Mono({
@@ -25,6 +28,8 @@ const ibm = IBM_Plex_Mono({
   weight: ["400", "500"],
   variable: "--font-ibm",
   display: "swap",
+  preload: false,
+  fallback: ["monospace"],
 });
 
 export const metadata: Metadata = {
@@ -38,7 +43,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children: _children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -49,9 +54,7 @@ export default function RootLayout({ children: _children }: { children: React.Re
           <AppPathProvider>
             <div className="page-frame min-h-screen">
               <Navigation />
-              <main className="w-full">
-                <SiteShell />
-              </main>
+              <main className="w-full">{children}</main>
               <Toaster theme="light" position="bottom-right" richColors />
             </div>
           </AppPathProvider>

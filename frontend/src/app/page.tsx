@@ -7,6 +7,7 @@ import { formatEther } from "viem";
 import { useRegistryStats } from "@/hooks/useAgentRegistry";
 import { TrustDesk } from "@/components/TrustDesk";
 import { AGENT_STILLS, VERIA_SLOGAN } from "@/lib/veriaMedia";
+import { useLiveRegistryAgents } from "@/hooks/useLiveAgents";
 import { ArrowRight, ChevronDown } from "lucide-react";
 
 const FEATURE_CARDS = [
@@ -44,51 +45,6 @@ const FEATURE_CARDS = [
 const FOOTER_COLUMNS = [
   { title: "Protocol", links: ["Explorer", "Staking", "MeTTa", "Omega"] },
   { title: "Resources", links: ["Documentation", "Agent SDK", "Brand Assets", "Status"] },
-];
-
-const HERO_AGENTS = [
-  {
-    name: "Agent Alpha-9",
-    still: AGENT_STILLS[0],
-    reputation: 982,
-    progress: "88%",
-    serial: "VR-00419",
-    model: "claude-3-opus",
-    stake: "1.250",
-    memories: [
-      "Settled 14 tasks without a dispute.",
-      "Returned unused budget after a cancelled run.",
-      "Never requested private-context export.",
-    ],
-  },
-  {
-    name: "Signal Forge",
-    still: AGENT_STILLS[1],
-    reputation: 914,
-    progress: "80%",
-    serial: "VR-00882",
-    model: "gpt-4o",
-    stake: "0.420",
-    memories: [
-      "Two successful tool calls last week.",
-      "A child agent was left unsupervised for 11 hours.",
-      "Stake was topped up after a near-miss.",
-    ],
-  },
-  {
-    name: "Atlas Relay",
-    still: AGENT_STILLS[2],
-    reputation: 956,
-    progress: "84%",
-    serial: "VR-00117",
-    model: "llama-3-70b",
-    stake: "0.880",
-    memories: [
-      "Routed 9 cross-chain messages cleanly.",
-      "Attempted to widen data access once, then backed off.",
-      "Peer review is net positive.",
-    ],
-  },
 ];
 
 const HOW_IT_WORKS = [
@@ -188,22 +144,26 @@ function AnimatedStatValue({
 export default function LandingPage() {
   const { isConnected } = useVeriaWallet();
   const { data: stats, isLoading: statsLoading } = useRegistryStats();
+  const { agents } = useLiveRegistryAgents(8);
+  const visas = agents.slice(0, 3);
   const [activeAgent, setActiveAgent] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [flowStep, setFlowStep] = useState(0);
   const [userHeld, setUserHeld] = useState(false);
 
   useEffect(() => {
-    if (userHeld) return;
+    if (userHeld || visas.length < 2) return;
     const timer = window.setInterval(() => {
-      setActiveAgent((current) => (current + 1) % HERO_AGENTS.length);
+      setActiveAgent((current) => (current + 1) % visas.length);
     }, 3200);
     return () => window.clearInterval(timer);
-  }, [userHeld]);
+  }, [userHeld, visas.length]);
 
-  const orderedAgents = HERO_AGENTS.map((agent, index) => ({
+  const orderedAgents = visas.map((agent, index) => ({
     ...agent,
-    position: (index - activeAgent + HERO_AGENTS.length) % HERO_AGENTS.length,
+    serial: agent.address.slice(2, 8).toUpperCase(),
+    progress: `${Math.min(100, Math.round(agent.reputation / 10))}%`,
+    position: (index - activeAgent + visas.length) % visas.length,
   })).sort((a, b) => a.position - b.position);
 
   const statValues = useMemo(
@@ -299,45 +259,53 @@ export default function LandingPage() {
             </div>
             <div className="relative z-20 -mt-24 flex min-h-[260px] items-end justify-center pb-2 sm:-mt-28 sm:min-h-[280px]">
               <div className="relative h-[260px] w-full max-w-[360px] sm:h-[280px]">
-                {orderedAgents.map((agent) => {
-                  const originalIndex = HERO_AGENTS.findIndex((item) => item.name === agent.name);
-                  const cardClass =
-                    agent.position === 0 ? "hero-card-active z-30" : agent.position === 1 ? "hero-card-next z-20" : "hero-card-back z-10";
-                  return (
-                    <button
-                      key={agent.name}
-                      type="button"
-                      onClick={() => {
-                        setActiveAgent(originalIndex);
-                        setUserHeld(true);
-                      }}
-                      className={`hero-agent-card visa visa-pick absolute left-1/2 top-1/2 w-[220px] -translate-x-1/2 -translate-y-1/2 text-left sm:w-[250px] ${cardClass}`}
-                    >
-                      <div className="visa-band" />
-                      <div className="p-4 sm:p-5">
-                        <div className="flex items-center justify-between font-mono text-[10px] tracking-[0.16em]">
-                          <span className="text-[#1f3dff]">VERIA VISA</span>
-                          <span>{agent.serial}</span>
-                        </div>
-                        <div className="mt-4 flex items-center gap-3">
-                          <div className="relative h-12 w-12 overflow-hidden border border-[#111217]">
-                            <Image src={agent.still} alt={agent.name} fill sizes="48px" className="object-cover" />
+                {visas.length === 0 ? (
+                  <div className="visa visa-pick absolute left-1/2 top-1/2 w-[250px] -translate-x-1/2 -translate-y-1/2 p-5">
+                    <p className="font-mono text-[10px] tracking-[0.16em] text-[#1f3dff]">REGISTRY</p>
+                    <p className="display mt-4 text-2xl">No agents on-chain yet</p>
+                    <p className="mt-3 text-sm leading-6 text-aegent-muted">Register an agent to populate this visa and the MeTTa desk.</p>
+                  </div>
+                ) : (
+                  orderedAgents.map((agent) => {
+                    const originalIndex = visas.findIndex((item) => item.address === agent.address);
+                    const cardClass =
+                      agent.position === 0 ? "hero-card-active z-30" : agent.position === 1 ? "hero-card-next z-20" : "hero-card-back z-10";
+                    return (
+                      <button
+                        key={agent.address}
+                        type="button"
+                        onClick={() => {
+                          setActiveAgent(originalIndex);
+                          setUserHeld(true);
+                        }}
+                        className={`hero-agent-card visa visa-pick absolute left-1/2 top-1/2 w-[220px] -translate-x-1/2 -translate-y-1/2 text-left sm:w-[250px] ${cardClass}`}
+                      >
+                        <div className="visa-band" />
+                        <div className="p-4 sm:p-5">
+                          <div className="flex items-center justify-between font-mono text-[10px] tracking-[0.16em]">
+                            <span className="text-[#1f3dff]">VERIA VISA</span>
+                            <span>{agent.serial}</span>
                           </div>
-                          <div>
-                            <p className="display text-xl leading-none">{agent.name}</p>
-                            <p className="mt-1 font-mono text-[10px] uppercase text-aegent-dim">{agent.model}</p>
+                          <div className="mt-4 flex items-center gap-3">
+                            <div className="relative h-12 w-12 overflow-hidden border border-[#111217]">
+                              <Image src={agent.still} alt={agent.name} fill sizes="48px" className="object-cover" />
+                            </div>
+                            <div>
+                              <p className="display text-xl leading-none">{agent.name}</p>
+                              <p className="mt-1 font-mono text-[10px] uppercase text-aegent-dim">{agent.model}</p>
+                            </div>
+                          </div>
+                          <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.16em] text-[#e23c2f]">
+                            Reputation {agent.reputation}
+                          </p>
+                          <div className="mt-2 h-2 border border-[#111217] bg-[#f2efe8]">
+                            <div className="h-full bg-[#1f3dff]" style={{ width: agent.progress }} />
                           </div>
                         </div>
-                        <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.16em] text-[#e23c2f]">
-                          Reputation {agent.reputation}
-                        </p>
-                        <div className="mt-2 h-2 border border-[#111217] bg-[#f2efe8]">
-                          <div className="h-full bg-[#1f3dff]" style={{ width: agent.progress }} />
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
             <p className="relative z-20 mt-2 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-aegent-dim">
@@ -348,10 +316,9 @@ export default function LandingPage() {
       </section>
 
       <TrustDesk
-        agent={HERO_AGENTS[activeAgent]}
-        agents={HERO_AGENTS}
-        onPickAgent={(name) => {
-          const index = HERO_AGENTS.findIndex((item) => item.name === name);
+        selectedAddress={userHeld ? visas[activeAgent]?.address : undefined}
+        onPickAgent={(address) => {
+          const index = visas.findIndex((item) => item.address.toLowerCase() === address.toLowerCase());
           if (index >= 0) {
             setActiveAgent(index);
             setUserHeld(true);
@@ -471,12 +438,14 @@ export default function LandingPage() {
                   key={src}
                   type="button"
                   onClick={() => {
-                    setActiveAgent(index);
-                    setUserHeld(true);
+                    if (visas[index]) {
+                      setActiveAgent(index);
+                      setUserHeld(true);
+                    }
                   }}
                   className="photo-frame h-16 w-full"
                 >
-                  <Image src={src} alt={HERO_AGENTS[index].name} fill sizes="120px" className="object-cover" />
+                  <Image src={src} alt={visas[index]?.name || "VERIA agent"} fill sizes="120px" className="object-cover" />
                 </button>
               ))}
             </div>

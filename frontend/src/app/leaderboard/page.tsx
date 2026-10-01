@@ -6,12 +6,17 @@ import { type AgentData, useAgentsPaginated, useTopAgents } from "@/hooks/useAge
 import { agentStillFor } from "@/lib/veriaMedia";
 import Image from "next/image";
 import { Crown, ExternalLink, Medal, Trophy } from "lucide-react";
+import { AgentActionDesk } from "@/components/AgentActionDesk";
+import { useLiveRegistryAgents } from "@/hooks/useLiveAgents";
+import { useState } from "react";
 
 const LEADERBOARD_SIZE = 20;
 
 export default function LeaderboardPage() {
   const { data: topData, isLoading } = useTopAgents(LEADERBOARD_SIZE);
   const { data: agentsPaginatedData } = useAgentsPaginated(0, LEADERBOARD_SIZE);
+  const live = useLiveRegistryAgents(LEADERBOARD_SIZE);
+  const [selected, setSelected] = useState<string | null>(null);
 
   const topAddresses: Address[] = topData ? (topData[0] as Address[]) : [];
   const topScores: bigint[] = topData ? (topData[1] as bigint[]) : [];
@@ -71,7 +76,8 @@ export default function LeaderboardPage() {
               Agent <span className="italic text-aegent-accent">standing</span>
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-aegent-muted sm:text-base">
-              Rank agents by the reputation VERIA records from outcomes, reviews, and on-chain accountability.
+              Rank agents by on-chain reputation, then run a MeTTa action against that same registry record. Stake,
+              tasks, and identity come from AgentRegistry. Omega stores the decision for the next request.
             </p>
           </div>
 
@@ -174,7 +180,9 @@ export default function LeaderboardPage() {
               <th className="hidden px-4 py-3 text-right text-sm font-black text-[#111217] lg:table-cell">
                 My Stake
               </th>
-              <th className="w-10" />
+              <th className="w-28 px-4 py-3 text-right text-xs font-medium uppercase tracking-[0.18em] text-aegent-dim">
+                MeTTa
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -197,7 +205,8 @@ export default function LeaderboardPage() {
               rankedAgents.map(({ addr, rank, agent, score, completed, failed, staked }) => (
                 <tr
                   key={addr}
-                  className={`border-b border-aegent-border/60 transition-colors last:border-0 hover:bg-aegent-surface ${rank < 3 ? getRankBg(rank) : ""}`}
+                  className={`border-b border-aegent-border/60 transition-colors last:border-0 hover:bg-aegent-surface ${rank < 3 ? getRankBg(rank) : ""} ${selected?.toLowerCase() === addr.toLowerCase() ? "bg-[#fff8e8]" : ""}`}
+                  onClick={() => setSelected(addr)}
                 >
                   <td className="px-4 py-3.5">
                     <div className="flex h-8 w-8 items-center justify-center">{getRankIcon(rank)}</div>
@@ -230,14 +239,23 @@ export default function LeaderboardPage() {
                     {staked.toFixed(2)} PAS
                   </td>
                   <td className="px-2 py-3.5">
-                    <a
-                      href={`https://blockscout-testnet.polkadot.io/address/${addr}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block p-1.5 transition-colors hover:bg-aegent-surface"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5 text-aegent-dim hover:text-aegent-accent" />
-                    </a>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        className="border-2 border-[#111217] bg-white px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em] hover:bg-[#1f3dff] hover:text-white"
+                        onClick={() => setSelected(addr)}
+                      >
+                        Action
+                      </button>
+                      <a
+                        href={`https://blockscout-passet-hub.polkadot.io/address/${addr}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block p-1.5 transition-colors hover:bg-aegent-surface"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 text-aegent-dim hover:text-aegent-accent" />
+                      </a>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -245,6 +263,23 @@ export default function LeaderboardPage() {
           </tbody>
         </table>
       </div>
+
+      <section className="space-y-4">
+        <div>
+          <p className="kicker">Leaderboard action</p>
+          <h2 className="display mt-3 text-3xl">Run MeTTa on a ranked agent</h2>
+        </div>
+        <AgentActionDesk
+          agent={
+            live.agents.find((item) => item.address.toLowerCase() === (selected || rankedAgents[0]?.addr || "").toLowerCase()) ||
+            live.agents[0] ||
+            null
+          }
+          agents={live.agents}
+          whenPath="/leaderboard"
+          onPick={setSelected}
+        />
+      </section>
     </div>
   );
 }

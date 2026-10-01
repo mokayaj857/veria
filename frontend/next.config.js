@@ -1,11 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
-  generateBuildId: async () => null,
   experimental: {
     staleTimes: {
-      dynamic: 300,
-      static: 300,
+      dynamic: 0,
+      static: 30,
     },
   },
   webpack: (config) => {
