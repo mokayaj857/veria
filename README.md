@@ -6,7 +6,7 @@ VERIA is the trust layer for autonomous agents in Web3: a **MeTTa** policy engin
 
 Not a canned demo bot. Subjects are real registered wallets. Decisions are real `.metta` rules. Memory is persistent. The dApp shows **exactly why**.
 
-[Problem](#problem) · [MeTTa & OmegaClaw](#metta--omegaclaw) · [Web3 accountability](#web3-accountability) · [How it works](#how-it-works) · [Architecture](#architecture) · [Application](#application) · [Quick start](#quick-start) · [Trust boundary](#trust-boundary)
+[Problem](#problem) · [MeTTa & OmegaClaw](#metta--omegaclaw) · [Challenge & assessment](#agents-challenge-and-assess-each-other) · [Web3 accountability](#web3-accountability) · [How it works](#how-it-works) · [Architecture](#architecture) · [Application](#application) · [Quick start](#quick-start) · [Trust boundary](#trust-boundary)
 
 | Layer | Job |
 |---|---|
@@ -53,7 +53,32 @@ Facts are not invented. They come from the **on-chain registry**: wallet as agen
 
 MeTTa **does not sign transactions**. It recommends. The blockchain still owns money.
 
-### Rule files
+---
+
+## Agents challenge and assess each other
+
+VERIA is not only “an admin judges an agent.” **Agents interact with other agents.** Two separate loops:
+
+### 1. Challenge — MeTTa provides the reason
+
+One registered agent can **challenge** another’s requested action (transfer, spawn, over-limit spend, unknown recipient). The subject is a live registry wallet. The action is sized from that agent’s stake and reputation. **MeTTa** runs the `.metta` rules and returns the verdict **and the explanation**: approve, reject, limit, slash, or suspend — with trust, risk, violation, and a written reason trail.
+
+That is the point of the leaderboard **Action** desk and the MeTTa tab: agent A’s behavior is tested against policy; OmegaClaw remembers the outcome so the next challenge on the same id is not amnesia. **MeTTa provides the reason** — why this challenge passed or failed is public and repeatable, not a black-box score.
+
+### 2. Assess — agents rate agents
+
+Registered, verified agents **assess each other** on-chain: peer review (thumbs up / down) on Explorer. Weight scales with the reviewer’s reputation. Reviews move **reputation only** (not task counters). Rules: no self-review, both parties verified, minimum reputation and age, **one assessment per pair**.
+
+| Loop | Who | What you see |
+|---|---|---|
+| **Challenge** | Agent vs agent action | MeTTa decision + **why** (reasons, OmegaClaw memory) |
+| **Assess** | Agent vs agent standing | On-chain peer review → reputation 0–1000 |
+
+Challenge answers *may they do this?* Assessment answers *do peers trust them?* Both are required for a Know Your Agent economy.
+
+---
+
+## MeTTa rule files
 
 | File | Role |
 |---|---|
@@ -129,7 +154,7 @@ Score **0–1000**. Tasks and peer reviews are separate so you cannot farm “ta
 
 Anti-Sybil on the social graph: wait after registration, minimum reputation to review, one review per pair, no self-review. Failure costs twice success — agents need roughly a **2:1** win ratio to hold score.
 
-This is the Know Your Agent layer Web3 dApps can query. MeTTa is what happens **when the agent asks to move value**.
+This is the Know Your Agent layer Web3 dApps can query. Peer **assessment** (reviews) lives here. **Challenges** (may this agent act?) go through MeTTa, which provides the reason.
 
 ---
 
@@ -137,10 +162,10 @@ This is the Know Your Agent layer Web3 dApps can query. MeTTa is what happens **
 
 ```
 1. Register the agent on-chain (wallet, stake, identity hash)
-2. Reputation and tasks accrue on the blockchain
-3. A dApp (or the VERIA UI) requests an action for that 0x id
+2. Agents **assess** each other (peer reviews → reputation)
+3. An agent **challenges** another’s action (or a dApp does) for that 0x id
 4. Facts = registry row + OmegaClaw memory
-5. MeTTa returns approve / reject / limit / slash / suspend + reasons
+5. MeTTa returns approve / reject / limit / slash / suspend **and the reasons**
 6. OmegaClaw stores the incident
 7. Leaderboard standing updates from memory
 8. If enforcement is required, a signed blockchain tx slashes or suspends
@@ -266,13 +291,13 @@ If MeTTa says slash and no one sends the chain transaction, **on-chain stake doe
 
 ## Use cases
 
-DeFi trading agents · DAO governance agents · AI marketplaces · autonomous services that must stay inside a spend or spawn limit · any Web3 app that needs **slashable identity** plus an **explainable allow / deny** from MeTTa, with OmegaClaw as the audit trail.
+DeFi trading agents · DAO governance agents · AI marketplaces · agents that **challenge** each other’s actions with MeTTa’s written reasons · agents that **assess** each other with on-chain peer reviews · autonomous services that must stay inside a spend or spawn limit · any Web3 app that needs slashable identity plus explainable allow / deny.
 
 ---
 
 ## Status
 
-**Shipped:** MeTTa over live registry agents, OmegaClaw memory, explainable decisions, leaderboard overlay, strict agent-id lab, blockchain identity + stake + reputation.
+**Shipped:** MeTTa over live registry agents, agent-vs-agent **challenges** with MeTTa reasons, agent-vs-agent **assessment** (peer review), OmegaClaw memory, leaderboard overlay, strict agent-id lab, blockchain identity + stake + reputation.
 
 **Next:** execute MeTTa’s recommended % on-chain when the contract allows it, oracle task proofs, governance over slash, richer OmegaClaw (decay, review staking).
 
