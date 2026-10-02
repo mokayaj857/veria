@@ -40,3 +40,6 @@ verifier/contract.polkavm
 .env
 .env.*
 !.env.example
+
+# MeTTa Omega memory (local)
+backend/metta/data/
